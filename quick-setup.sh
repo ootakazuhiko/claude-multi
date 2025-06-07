@@ -23,6 +23,24 @@ if [ ! -f /proc/sys/fs/binfmt_misc/WSLInterop ]; then
     error_exit "WSL2環境で実行してください"
 fi
 
+# 環境確認（新規追加）
+WSL_DISTRO_NAME=${WSL_DISTRO_NAME:-"Unknown"}
+if [ "$WSL_DISTRO_NAME" = "Claude-Multi" ]; then
+    echo -e "${GREEN}✓ Claude-Multi環境で実行中${NC}"
+else
+    echo -e "${YELLOW}⚠️  注意: 現在 $WSL_DISTRO_NAME 環境で実行しています${NC}"
+    echo "Claude専用環境（Claude-Multi）の使用を推奨します。"
+    echo ""
+    echo -n "このまま続行しますか？ [y/N]: "
+    read -r confirm
+    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+        echo ""
+        echo "Claude-Multi環境の作成方法："
+        echo "https://github.com/ootakazuhiko/claude-multi#推奨claude専用wsl環境の作成"
+        exit 0
+    fi
+fi
+
 echo "📦 必要なパッケージをインストール中..."
 sudo apt update || error_exit "apt updateに失敗しました"
 sudo apt install -y podman git gh curl || error_exit "パッケージインストールに失敗しました"

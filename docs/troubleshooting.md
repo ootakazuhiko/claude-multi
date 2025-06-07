@@ -61,6 +61,56 @@ ss -tlnp | grep :3000
 sudo iptables -L
 ```
 
+## Claude-Multi環境関連
+
+### Claude-Multi環境が見つからない
+
+```powershell
+# 環境一覧を確認
+wsl --list --verbose
+
+# Claude-Multi環境を作成していない場合は、READMEの手順に従って作成
+# https://github.com/ootakazuhiko/claude-multi#推奨claude専用wsl環境の作成
+```
+
+### 間違えて通常のUbuntu環境で実行してしまった
+
+通常のUbuntu環境でセットアップしてしまった場合でも動作しますが、以下の方法でClaude-Multi環境に移行できます：
+
+1. 現在の環境をバックアップ
+2. Claude-Multi環境を新規作成
+3. Claude-Multi環境でセットアップを実行
+
+### WSL環境の判別
+
+現在どの環境にいるか確認：
+
+```bash
+echo $WSL_DISTRO_NAME
+```
+
+プロンプトで環境を分かりやすくする：
+
+```bash
+# Claude-Multi環境の ~/.bashrc に追加
+export PS1="\[\033[01;35m\][Claude-Multi]\[\033[00m\] \[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ "
+```
+
+### Claude-Multi環境のリセット
+
+問題が解決しない場合、環境を完全にリセット：
+
+```powershell
+# バックアップ（必要な場合）
+wsl --export Claude-Multi claude-backup.tar
+
+# 環境削除
+wsl --unregister Claude-Multi
+
+# 再作成
+wsl --import Claude-Multi "$env:USERPROFILE\WSL\Claude-Multi" ubuntu-base.tar
+```
+
 ## サポート
 
 問題が解決しない場合は、以下の情報と共にIssueを作成してください：

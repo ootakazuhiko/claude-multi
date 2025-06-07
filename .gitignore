@@ -11,3 +11,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# WSL backup files
+*.tar
+*.tar.gz

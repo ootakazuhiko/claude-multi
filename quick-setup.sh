@@ -67,7 +67,18 @@ echo ""
 echo "🔐 GitHub認証設定..."
 if ! gh auth status >/dev/null 2>&1; then
     echo "GitHub認証が必要です。"
-    gh auth login
+    echo "以下のコマンドを実行してください："
+    echo ""
+    echo "  gh auth login"
+    echo ""
+    echo "認証方法："
+    echo "1. 'Login with a web browser' を選択"
+    echo "2. 表示されるコードをメモ"
+    echo "3. Enterキーを押すとURLが表示される（ブラウザは開かない）"
+    echo "4. Windows側のブラウザでURLを開く"
+    echo "5. コードを入力して認証"
+    echo ""
+    echo -e "${YELLOW}※ 認証は後で行うこともできます${NC}"
 else
     echo "✓ GitHub認証済み"
 fi
@@ -77,7 +88,16 @@ echo "🔑 SSH鍵設定..."
 if [ ! -f ~/.ssh/id_ed25519 ]; then
     read -p "GitHubで使用するメールアドレス: " email
     ssh-keygen -t ed25519 -C "$email" -N "" -f ~/.ssh/id_ed25519
-    gh ssh-key add ~/.ssh/id_ed25519.pub --title "Claude Multi - $(hostname)"
+    
+    # GitHub認証済みの場合のみSSH鍵を追加
+    if gh auth status >/dev/null 2>&1; then
+        gh ssh-key add ~/.ssh/id_ed25519.pub --title "Claude Multi - $(hostname)"
+        echo "✓ SSH鍵をGitHubに追加しました"
+    else
+        echo "✓ SSH鍵を作成しました"
+        echo -e "${YELLOW}※ GitHub認証後、以下のコマンドでSSH鍵を追加してください：${NC}"
+        echo "  gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - $(hostname)\""
+    fi
 else
     echo "✓ SSH鍵は既に存在します"
 fi

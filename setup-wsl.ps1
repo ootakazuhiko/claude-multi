@@ -25,14 +25,27 @@ if ($existingDistros -and $Force) {
     wsl --unregister Claude-Multi
 }
 
-Write-Host "📦 Ubuntu 22.04をインストール中..." -ForegroundColor Green
-wsl --install -d Ubuntu-22.04 --no-launch
+# Ubuntu-22.04が既に存在するか確認
+$ubuntuExists = wsl --list --quiet | Where-Object { $_ -eq "Ubuntu-22.04" }
 
-Write-Host "⏳ インストール完了を待機中..." -ForegroundColor Yellow
-Start-Sleep -Seconds 10
-
-Write-Host "📤 エクスポート中..." -ForegroundColor Green
-wsl --export Ubuntu-22.04 "$env:TEMP\ubuntu-base.tar"
+if (-not $ubuntuExists) {
+    Write-Host "📦 Ubuntu 22.04をインストール中..." -ForegroundColor Green
+    wsl --install -d Ubuntu-22.04 --no-launch
+    
+    Write-Host "⏳ インストール完了を待機中..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 10
+    
+    Write-Host "📤 エクスポート中..." -ForegroundColor Green
+    wsl --export Ubuntu-22.04 "$env:TEMP\ubuntu-base.tar"
+    
+    $removeOriginal = $true
+} else {
+    Write-Host "✅ Ubuntu-22.04は既に存在します" -ForegroundColor Green
+    Write-Host "📤 エクスポート中..." -ForegroundColor Green
+    wsl --export Ubuntu-22.04 "$env:TEMP\ubuntu-base.tar"
+    
+    $removeOriginal = $false
+}
 
 Write-Host "📥 Claude-Multiとしてインポート中..." -ForegroundColor Green
 $installPath = "$env:USERPROFILE\WSL\Claude-Multi"
@@ -40,7 +53,12 @@ New-Item -ItemType Directory -Path $installPath -Force | Out-Null
 wsl --import Claude-Multi $installPath "$env:TEMP\ubuntu-base.tar"
 
 Write-Host "🧹 クリーンアップ中..." -ForegroundColor Green
-wsl --unregister Ubuntu-22.04
+if ($removeOriginal) {
+    wsl --unregister Ubuntu-22.04
+    Write-Host "  ✓ Ubuntu-22.04を削除しました" -ForegroundColor Gray
+} else {
+    Write-Host "  ℹ️  元のUbuntu-22.04は保持されます" -ForegroundColor Gray
+}
 Remove-Item "$env:TEMP\ubuntu-base.tar"
 
 Write-Host "" 

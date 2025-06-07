@@ -23,18 +23,22 @@
 ```powershell
 # PowerShell（管理者権限）で実行
 
-# 1. Ubuntu 22.04をインストール
-wsl --install -d Ubuntu-22.04
+# 自動セットアップスクリプトを使用（推奨）
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/setup-wsl.ps1 -OutFile setup-wsl.ps1
+.\setup-wsl.ps1
 
-# 2. 一旦エクスポート
+# または手動で実行する場合：
+# 1. Ubuntu 22.04を準備（既存の場合はスキップ）
+wsl --install -d Ubuntu-22.04  # 既に存在する場合はエラーになるが問題なし
+
+# 2. エクスポート
 wsl --export Ubuntu-22.04 ubuntu-base.tar
 
 # 3. Claude-Multi という名前で再インポート  
 New-Item -ItemType Directory -Path "$env:USERPROFILE\WSL\Claude-Multi" -Force
 wsl --import Claude-Multi "$env:USERPROFILE\WSL\Claude-Multi" ubuntu-base.tar
 
-# 4. 元のUbuntu-22.04を削除
-wsl --unregister Ubuntu-22.04
+# 4. クリーンアップ
 Remove-Item ubuntu-base.tar
 
 # 5. Claude-Multi環境に入る

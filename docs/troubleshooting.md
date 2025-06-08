@@ -24,6 +24,20 @@ wsl --shutdown
 
 Claude Codeは現在限定アクセスです。インストールがスキップされても、他の機能は正常に動作します。
 
+#### SSH鍵の追加で "admin:public_key" スコープエラー
+
+GitHub CLI でSSH鍵を追加する際にスコープエラーが発生する場合：
+
+```bash
+# GitHub認証を更新（admin:public_keyスコープを追加）
+gh auth refresh -h github.com -s admin:public_key
+
+# SSH鍵を追加
+gh ssh-key add ~/.ssh/id_ed25519.pub --title "Claude Multi - $(hostname)"
+```
+
+このエラーは初回の `gh auth login` 時に必要なスコープが含まれていない場合に発生します。
+
 ### プロジェクト関連
 
 #### サービスが起動しない

@@ -24,6 +24,22 @@ wsl --shutdown
 
 Claude Codeは現在限定アクセスです。インストールがスキップされても、他の機能は正常に動作します。
 
+`claude-manager quickstart` や `claude-manager create` を実行した際、Claude Codeが利用できない場合は自動的にプレースホルダーサービスが作成され、プロジェクト環境は正常にセットアップされます。
+
+#### プロジェクト作成時にサービス起動エラーが発生する
+
+```bash
+# エラー例:
+# Job for claude-code@mytestproject01.service failed because the control process exited with error code.
+
+# 解決方法: 最新のclaude-manager.shを使用してください
+sudo curl -fsSL -o /opt/claude-shared/claude-manager.sh \
+    https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/claude-manager.sh
+
+# または、既存プロジェクトのサービスを確認
+claude-manager health myproject
+```
+
 ### プロジェクト関連
 
 #### サービスが起動しない

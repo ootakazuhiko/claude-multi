@@ -130,8 +130,40 @@ docker logs myapp
 \`\`\`
 CLAUDE_EOF
     
+    # Claude Codeの存在確認
+    local claude_path=""
+    if command -v claude >/dev/null 2>&1; then
+        claude_path=$(command -v claude)
+        echo "✓ Claude Code が見つかりました: $claude_path"
+    else
+        echo -e "${YELLOW}⚠️  Claude Code が見つかりません。プレースホルダーサービスを作成します。${NC}"
+        claude_path="/bin/echo"
+    fi
+    
     # systemdサービス作成
-    cat > /etc/systemd/system/claude-code@$name.service <<SERVICE_EOF
+    if [ "$claude_path" = "/bin/echo" ]; then
+        # Claude Codeが利用できない場合のプレースホルダーサービス
+        cat > /etc/systemd/system/claude-code@$name.service <<SERVICE_EOF
+[Unit]
+Description=Claude Code - $name (Placeholder)
+After=network.target
+
+[Service]
+Type=oneshot
+User=claude-$name
+WorkingDirectory=/home/claude-$name/workspace
+Environment="DOCKER_HOST=unix:///run/user/$uid/podman/podman.sock"
+Environment="CLAUDE_PROJECT=$name"
+ExecStartPre=/bin/bash -c 'sudo -u claude-$name systemctl --user start podman.socket'
+ExecStart=/bin/echo "Claude Code is not available. Project $name workspace is ready for manual development."
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+SERVICE_EOF
+    else
+        # Claude Codeが利用可能な場合の通常サービス
+        cat > /etc/systemd/system/claude-code@$name.service <<SERVICE_EOF
 [Unit]
 Description=Claude Code - $name
 After=network.target
@@ -142,9 +174,9 @@ User=claude-$name
 WorkingDirectory=/home/claude-$name/workspace
 Environment="DOCKER_HOST=unix:///run/user/$uid/podman/podman.sock"
 Environment="CLAUDE_PROJECT=$name"
-Environment="PATH=/home/roota/.nvm/versions/node/v22.16.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PATH=$PATH"
 ExecStartPre=/bin/bash -c 'sudo -u claude-$name systemctl --user start podman.socket'
-ExecStart=/home/roota/.nvm/versions/node/v22.16.0/bin/claude code
+ExecStart=$claude_path code
 Restart=on-failure
 RestartSec=10
 MemoryLimit=4G
@@ -153,6 +185,7 @@ CPUQuota=200%
 [Install]
 WantedBy=multi-user.target
 SERVICE_EOF
+    fi
     
     systemctl daemon-reload
     systemctl enable claude-code@$name >/dev/null 2>&1
@@ -226,16 +259,36 @@ quickstart() {
     # 起動確認
     if systemctl is-active --quiet claude-code@$name; then
         echo ""
-        echo -e "${GREEN}✨ セットアップ完了！${NC}"
-        echo ""
-        echo "📂 VS Codeで開く:"
-        echo "  code --remote wsl+Ubuntu /home/claude-$name/workspace"
-        echo ""
-        echo "📋 プロジェクトに入る:"
-        echo "  sudo -u claude-$name -i bash"
-        echo ""
-        echo "🔍 状態確認:"
-        echo "  claude-manager health $name"
+        # Claude Codeの利用可能性を確認してメッセージを調整
+        if command -v claude >/dev/null 2>&1; then
+            echo -e "${GREEN}✨ セットアップ完了！${NC}"
+            echo ""
+            echo "📂 VS Codeで開く:"
+            echo "  code --remote wsl+Ubuntu /home/claude-$name/workspace"
+            echo ""
+            echo "📋 プロジェクトに入る:"
+            echo "  sudo -u claude-$name -i bash"
+            echo ""
+            echo "🔍 状態確認:"
+            echo "  claude-manager health $name"
+        else
+            echo -e "${GREEN}✨ プロジェクト環境セットアップ完了！${NC}"
+            echo ""
+            echo -e "${YELLOW}📝 Claude Codeは利用できませんが、開発環境は準備完了です。${NC}"
+            echo ""
+            echo "📂 VS Codeで開く:"
+            echo "  code --remote wsl+Ubuntu /home/claude-$name/workspace"
+            echo ""
+            echo "📋 プロジェクトに入る:"
+            echo "  sudo -u claude-$name -i bash"
+            echo ""
+            echo "💡 ヒント:"
+            echo "  - Podmanでコンテナを実行できます (dockerコマンドでアクセス可能)"
+            echo "  - ポート3000-3010が利用可能です"
+            echo ""
+            echo "🔍 状態確認:"
+            echo "  claude-manager health $name"
+        fi
     else
         echo ""
         echo -e "${RED}⚠️  起動に失敗しました${NC}"
@@ -260,7 +313,13 @@ list_projects() {
         local workspace="/home/$user/workspace"
         
         if [ "$status" = "active" ]; then
-            status="${GREEN}● 動作中${NC}"
+            # サービスの説明からプレースホルダーかどうか判断
+            local service_desc=$(systemctl show claude-code@$name -p Description --value 2>/dev/null)
+            if echo "$service_desc" | grep -q "Placeholder"; then
+                status="${YELLOW}● 準備完了${NC}"
+            else
+                status="${GREEN}● 動作中${NC}"
+            fi
         else
             status="${RED}● 停止${NC}"
         fi
@@ -285,7 +344,13 @@ health_check() {
     
     # サービス状態
     if systemctl is-active --quiet claude-code@$name; then
-        echo -e "Claude Code:      ${GREEN}● 正常${NC}"
+        # サービスの説明からプレースホルダーかどうか判断
+        local service_desc=$(systemctl show claude-code@$name -p Description --value)
+        if echo "$service_desc" | grep -q "Placeholder"; then
+            echo -e "Claude Code:      ${YELLOW}● プレースホルダー (Claude Code未インストール)${NC}"
+        else
+            echo -e "Claude Code:      ${GREEN}● 正常${NC}"
+        fi
     else
         echo -e "Claude Code:      ${RED}● 異常${NC}"
         echo ""

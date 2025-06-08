@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# 割り込み時のクリーンアップ設定
+trap cleanup_on_error INT TERM ERR
+
 echo "======================================"
 echo "Claude Multi - 初回セットアップ"
 echo "======================================"
@@ -12,10 +15,59 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# 入力値検証関数
+validate_email() {
+    local email="$1"
+    if [ -z "$email" ]; then
+        echo -e "${RED}エラー: メールアドレスが入力されていません${NC}" >&2
+        return 1
+    fi
+    
+    # 基本的なメールアドレス形式チェック
+    if ! [[ "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+        echo -e "${RED}エラー: 有効なメールアドレスを入力してください${NC}" >&2
+        return 1
+    fi
+    
+    return 0
+}
+
+# セキュアなダウンロード関数
+secure_download() {
+    local url="$1"
+    local output="$2"
+    local expected_pattern="$3"  # オプション: 期待されるファイル内容のパターン
+    
+    echo "📥 ダウンロード中: $(basename "$output")"
+    
+    if ! curl -fsSL "$url" -o "$output"; then
+        echo -e "${RED}エラー: ダウンロードに失敗しました: $url${NC}" >&2
+        return 1
+    fi
+    
+    # 基本的な内容チェック（shellscriptヘッダーの確認）
+    if [ -n "$expected_pattern" ] && ! head -5 "$output" | grep -q "$expected_pattern"; then
+        echo -e "${RED}エラー: ダウンロードしたファイルが期待された形式ではありません${NC}" >&2
+        rm -f "$output"
+        return 1
+    fi
+    
+    return 0
+}
+
 # エラーハンドラ
 error_exit() {
     echo -e "${RED}エラー: $1${NC}" >&2
+    cleanup_on_error
     exit 1
+}
+
+# エラー時のクリーンアップ
+cleanup_on_error() {
+    echo "クリーンアップ中..."
+    # 一時ファイルのクリーンアップ
+    rm -f /tmp/claude-install.sh /tmp/claude-manager.sh
+    # その他必要なクリーンアップがあればここに追加
 }
 
 # WSL2チェック
@@ -58,7 +110,23 @@ fi
 echo ""
 echo "🤖 Claude Codeをインストール中..."
 if ! command -v claude >/dev/null 2>&1; then
-    curl -fsSL https://claude.ai/install.sh | sudo bash || echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
+    echo -e "${YELLOW}⚠️  外部スクリプトからClaude Codeをインストールします${NC}"
+    echo "インストール元: https://claude.ai/install.sh"
+    echo -n "続行しますか？ [y/N]: "
+    read -r install_confirm
+    
+    if [ "$install_confirm" = "y" ] || [ "$install_confirm" = "Y" ]; then
+        # 一時ファイルにダウンロードして内容を確認
+        if secure_download "https://claude.ai/install.sh" "/tmp/claude-install.sh" "#!/"; then
+            echo "インストールスクリプトを実行中..."
+            sudo bash /tmp/claude-install.sh
+            rm -f /tmp/claude-install.sh
+        else
+            echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
+    fi
 else
     echo "✓ Claude Codeは既にインストールされています"
 fi
@@ -86,8 +154,20 @@ fi
 echo ""
 echo "🔑 SSH鍵設定..."
 if [ ! -f ~/.ssh/id_ed25519 ]; then
-    read -p "GitHubで使用するメールアドレス: " email
+    while true; do
+        read -rp "GitHubで使用するメールアドレス: " email
+        if validate_email "$email"; then
+            break
+        fi
+        echo "有効なメールアドレスを入力してください。"
+    done
+    
     ssh-keygen -t ed25519 -C "$email" -N "" -f ~/.ssh/id_ed25519
+    
+    # SSH鍵ファイルの権限を確実に設定
+    chmod 700 ~/.ssh
+    chmod 600 ~/.ssh/id_ed25519
+    chmod 644 ~/.ssh/id_ed25519.pub
     
     # GitHub認証済みの場合のみSSH鍵を追加
     if gh auth status >/dev/null 2>&1; then
@@ -125,12 +205,17 @@ echo ""
 echo "📂 管理スクリプトをインストール中..."
 sudo mkdir -p /opt/claude-shared
 
-# claude-manager.shをダウンロード
-sudo curl -fsSL -o /opt/claude-shared/claude-manager.sh \
-    https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/claude-manager.sh \
-    || error_exit "claude-manager.shのダウンロードに失敗しました"
-
-sudo chmod +x /opt/claude-shared/claude-manager.sh
+# claude-manager.shをセキュアにダウンロード
+if secure_download \
+    "https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/claude-manager.sh" \
+    "/tmp/claude-manager.sh" \
+    "#!/bin/bash"; then
+    
+    sudo mv /tmp/claude-manager.sh /opt/claude-shared/claude-manager.sh
+    sudo chmod +x /opt/claude-shared/claude-manager.sh
+else
+    error_exit "claude-manager.shのダウンロードに失敗しました"
+fi
 
 # エイリアス設定
 if ! grep -q "alias claude-manager" ~/.bashrc; then

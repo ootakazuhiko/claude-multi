@@ -7,6 +7,29 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# 入力値検証関数
+validate_project_name() {
+    local name="$1"
+    if [ -z "$name" ]; then
+        echo -e "${RED}エラー: プロジェクト名を指定してください${NC}" >&2
+        return 1
+    fi
+    
+    # プロジェクト名のバリデーション（英数字、ハイフン、アンダースコアのみ許可）
+    if ! [[ "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo -e "${RED}エラー: プロジェクト名は英数字、ハイフン、アンダースコアのみ使用できます${NC}" >&2
+        return 1
+    fi
+    
+    # 長さ制限（1-32文字）
+    if [ ${#name} -gt 32 ] || [ ${#name} -lt 1 ]; then
+        echo -e "${RED}エラー: プロジェクト名は1-32文字で指定してください${NC}" >&2
+        return 1
+    fi
+    
+    return 0
+}
+
 usage() {
     cat << EOF
 Claude Multi - 複数Claude Code環境管理ツール
@@ -42,10 +65,12 @@ EOF
 
 # エラーチェック関数
 check_project_exists() {
-    local name=$1
+    local name="$1"
+    validate_project_name "$name" || exit 1
+    
     if ! id "claude-$name" &>/dev/null; then
-        echo -e "${RED}エラー: プロジェクト '$name' が存在しません${NC}"
-        echo "利用可能なプロジェクト:"
+        echo -e "${RED}エラー: プロジェクト '$name' が存在しません${NC}" >&2
+        echo "利用可能なプロジェクト:" >&2
         list_projects_simple
         exit 1
     fi
@@ -69,35 +94,33 @@ list_projects_simple() {
 
 # プロジェクト作成
 create_project() {
-    local name=$1
+    local name="$1"
     
-    if [ -z "$name" ]; then
-        echo -e "${RED}エラー: プロジェクト名を指定してください${NC}"
-        exit 1
-    fi
+    validate_project_name "$name" || return 1
     
     if id "claude-$name" &>/dev/null; then
-        echo -e "${YELLOW}プロジェクト '$name' は既に存在します${NC}"
+        echo -e "${YELLOW}プロジェクト '$name' は既に存在します${NC}" >&2
         return 1
     fi
     
-    local uid=$(get_next_uid)
+    local uid
+    uid=$(get_next_uid)
     
     echo "📦 プロジェクト '$name' を作成中..."
     
     # ユーザー作成
-    useradd -m -u $uid -s /bin/bash claude-$name
-    loginctl enable-linger claude-$name
+    useradd -m -u "$uid" -s /bin/bash "claude-$name"
+    loginctl enable-linger "claude-$name"
     
     # ディレクトリ作成
-    sudo -u claude-$name mkdir -p /home/claude-$name/workspace
+    sudo -u "claude-$name" mkdir -p "/home/claude-$name/workspace"
     
     # Podman設定
-    sudo -u claude-$name podman system migrate >/dev/null 2>&1
-    sudo -u claude-$name systemctl --user enable podman.socket >/dev/null 2>&1
+    sudo -u "claude-$name" podman system migrate >/dev/null 2>&1
+    sudo -u "claude-$name" systemctl --user enable podman.socket >/dev/null 2>&1
     
     # 環境設定
-    cat >> /home/claude-$name/.bashrc <<'BASHRC_EOF'
+    cat >> "/home/claude-$name/.bashrc" <<'BASHRC_EOF'
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
 alias docker=podman
 alias docker-compose='podman-compose'
@@ -105,7 +128,7 @@ export PS1='\[\033[01;32m\]claude-${USER#claude-}\[\033[00m\]:\[\033[01;34m\]\w\
 BASHRC_EOF
     
     # CLAUDE.md作成
-    sudo -u claude-$name tee /home/claude-$name/workspace/CLAUDE.md >/dev/null <<CLAUDE_EOF
+    sudo -u "claude-$name" tee "/home/claude-$name/workspace/CLAUDE.md" >/dev/null <<CLAUDE_EOF
 # Project: $name
 
 このプロジェクトはClaude Multi環境で管理されています。
@@ -131,7 +154,7 @@ docker logs myapp
 CLAUDE_EOF
     
     # systemdサービス作成
-    cat > /etc/systemd/system/claude-code@$name.service <<SERVICE_EOF
+    cat > "/etc/systemd/system/claude-code@$name.service" <<SERVICE_EOF
 [Unit]
 Description=Claude Code - $name
 After=network.target
@@ -155,37 +178,46 @@ WantedBy=multi-user.target
 SERVICE_EOF
     
     systemctl daemon-reload
-    systemctl enable claude-code@$name >/dev/null 2>&1
+    systemctl enable "claude-code@$name" >/dev/null 2>&1
     
     echo -e "${GREEN}✅ プロジェクト作成完了${NC}"
 }
 
 # GitHub設定コピー
 setup_git() {
-    local name=$1
-    local source_user=${SUDO_USER:-$(logname 2>/dev/null || whoami)}
+    local name="$1"
+    local source_user="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+    
+    validate_project_name "$name" || return 1
     
     echo "🔧 GitHub設定をコピー中..."
     
-    # SSH鍵コピー
+    # SSH鍵コピー（より安全な権限設定）
     if [ -d "/home/$source_user/.ssh" ]; then
-        cp -r /home/$source_user/.ssh /home/claude-$name/
-        chown -R claude-$name:claude-$name /home/claude-$name/.ssh
-        chmod 700 /home/claude-$name/.ssh
-        chmod 600 /home/claude-$name/.ssh/* 2>/dev/null || true
+        # 一時的に適切な権限でコピー
+        cp -r "/home/$source_user/.ssh" "/home/claude-$name/"
+        chown -R "claude-$name:claude-$name" "/home/claude-$name/.ssh"
+        chmod 700 "/home/claude-$name/.ssh"
+        # 秘密鍵は600、公開鍵は644に設定
+        find "/home/claude-$name/.ssh" -name "id_*" -not -name "*.pub" -exec chmod 600 {} \;
+        find "/home/claude-$name/.ssh" -name "*.pub" -exec chmod 644 {} \;
+        chmod 600 "/home/claude-$name/.ssh/config" 2>/dev/null || true
+        chmod 644 "/home/claude-$name/.ssh/known_hosts" 2>/dev/null || true
     fi
     
     # GitHub CLI設定コピー
     if [ -d "/home/$source_user/.config/gh" ]; then
-        mkdir -p /home/claude-$name/.config
-        cp -r /home/$source_user/.config/gh /home/claude-$name/.config/
-        chown -R claude-$name:claude-$name /home/claude-$name/.config
+        mkdir -p "/home/claude-$name/.config"
+        cp -r "/home/$source_user/.config/gh" "/home/claude-$name/.config/"
+        chown -R "claude-$name:claude-$name" "/home/claude-$name/.config"
+        chmod 700 "/home/claude-$name/.config/gh"
     fi
     
     # Git設定コピー
     if [ -f "/home/$source_user/.gitconfig" ]; then
-        cp /home/$source_user/.gitconfig /home/claude-$name/
-        chown claude-$name:claude-$name /home/claude-$name/.gitconfig
+        cp "/home/$source_user/.gitconfig" "/home/claude-$name/"
+        chown "claude-$name:claude-$name" "/home/claude-$name/.gitconfig"
+        chmod 644 "/home/claude-$name/.gitconfig"
     fi
     
     echo -e "${GREEN}✅ GitHub設定完了${NC}"
@@ -193,38 +225,37 @@ setup_git() {
 
 # クイックスタート
 quickstart() {
-    local name=$1
+    local name="$1"
     
-    if [ -z "$name" ]; then
-        echo -e "${RED}エラー: プロジェクト名を指定してください${NC}"
-        echo "例: claude-manager quickstart myproject"
+    validate_project_name "$name" || {
+        echo "例: claude-manager quickstart myproject" >&2
         exit 1
-    fi
+    }
     
     echo "🚀 Claude Code環境 '$name' をセットアップ中..."
     echo ""
     
     # プロジェクト作成
-    if ! create_project $name; then
+    if ! create_project "$name"; then
         return 1
     fi
     
     # Git設定
-    setup_git $name
+    setup_git "$name"
     
     # サービス起動
-    systemctl start claude-code@$name
+    systemctl start "claude-code@$name"
     
     # 少し待つ
     echo -n "起動中"
-    for i in {1..5}; do
+    for _ in {1..5}; do
         echo -n "."
         sleep 1
     done
     echo ""
     
     # 起動確認
-    if systemctl is-active --quiet claude-code@$name; then
+    if systemctl is-active --quiet "claude-code@$name"; then
         echo ""
         echo -e "${GREEN}✨ セットアップ完了！${NC}"
         echo ""
@@ -238,9 +269,9 @@ quickstart() {
         echo "  claude-manager health $name"
     else
         echo ""
-        echo -e "${RED}⚠️  起動に失敗しました${NC}"
-        echo "ログを確認してください:"
-        echo "  claude-manager logs $name"
+        echo -e "${RED}⚠️  起動に失敗しました${NC}" >&2
+        echo "ログを確認してください:" >&2
+        echo "  claude-manager logs $name" >&2
     fi
 }
 
@@ -255,8 +286,9 @@ list_projects() {
     
     for user in $(getent passwd | grep "^claude-" | cut -d: -f1 | sort); do
         projects_found=true
-        local name=${user#claude-}
-        local status=$(systemctl is-active claude-code@$name 2>/dev/null)
+        local name="${user#claude-}"
+        local status
+        status=$(systemctl is-active "claude-code@$name" 2>/dev/null)
         local workspace="/home/$user/workspace"
         
         if [ "$status" = "active" ]; then
@@ -265,7 +297,7 @@ list_projects() {
             status="${RED}● 停止${NC}"
         fi
         
-        printf "%-15s %-20b %-25s\n" "$name" "$status" "$workspace"
+        printf "%-15s %-20b %-25s\\n" "$name" "$status" "$workspace"
     done
     
     if [ "$projects_found" = false ]; then
@@ -277,35 +309,37 @@ list_projects() {
 
 # ヘルスチェック
 health_check() {
-    local name=$1
-    check_project_exists $name
+    local name="$1"
+    check_project_exists "$name"
     
     echo "🏥 ヘルスチェック: $name"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # サービス状態
-    if systemctl is-active --quiet claude-code@$name; then
+    if systemctl is-active --quiet "claude-code@$name"; then
         echo -e "Claude Code:      ${GREEN}● 正常${NC}"
     else
-        echo -e "Claude Code:      ${RED}● 異常${NC}"
-        echo ""
-        echo "起動するには: claude-manager start $name"
+        echo -e "Claude Code:      ${RED}● 異常${NC}" >&2
+        echo "" >&2
+        echo "起動するには: claude-manager start $name" >&2
         return 1
     fi
     
     # Podman動作確認
-    if sudo -u claude-$name podman info >/dev/null 2>&1; then
+    if sudo -u "claude-$name" podman info >/dev/null 2>&1; then
         echo -e "Podman:           ${GREEN}● 正常${NC}"
     else
-        echo -e "Podman:           ${RED}● 異常${NC}"
+        echo -e "Podman:           ${RED}● 異常${NC}" >&2
     fi
     
     # コンテナ数
-    local containers=$(sudo -u claude-$name podman ps -q 2>/dev/null | wc -l)
+    local containers
+    containers=$(sudo -u "claude-$name" podman ps -q 2>/dev/null | wc -l)
     echo "実行中コンテナ:   $containers"
     
     # ディスク使用量
-    local disk_usage=$(du -sh /home/claude-$name/workspace 2>/dev/null | cut -f1)
+    local disk_usage
+    disk_usage=$(du -sh "/home/claude-$name/workspace" 2>/dev/null | cut -f1)
     echo "ディスク使用量:   $disk_usage"
 }
 
@@ -315,8 +349,8 @@ start_all() {
     local count=0
     
     for user in $(getent passwd | grep "^claude-" | cut -d: -f1); do
-        local name=${user#claude-}
-        systemctl start claude-code@$name 2>/dev/null
+        local name="${user#claude-}"
+        systemctl start "claude-code@$name" 2>/dev/null
         echo "  ✓ $name"
         ((count++))
     done
@@ -330,8 +364,8 @@ stop_all() {
     local count=0
     
     for user in $(getent passwd | grep "^claude-" | cut -d: -f1); do
-        local name=${user#claude-}
-        systemctl stop claude-code@$name 2>/dev/null
+        local name="${user#claude-}"
+        systemctl stop "claude-code@$name" 2>/dev/null
         echo "  ✓ $name"
         ((count++))
     done
@@ -342,10 +376,10 @@ stop_all() {
 
 # プロジェクト削除
 delete_project() {
-    local name=$1
-    check_project_exists $name
+    local name="$1"
+    check_project_exists "$name"
     
-    echo -e "${YELLOW}⚠️  警告: この操作は取り消せません${NC}"
+    echo -e "${YELLOW}⚠️  警告: この操作は取り消せません${NC}" >&2
     echo "プロジェクト '$name' の以下が削除されます:"
     echo "  - /home/claude-$name 以下のすべてのファイル"
     echo "  - 実行中のコンテナとイメージ"
@@ -361,15 +395,15 @@ delete_project() {
     echo "削除中..."
     
     # サービス停止・無効化
-    systemctl stop claude-code@$name 2>/dev/null || true
-    systemctl disable claude-code@$name 2>/dev/null || true
-    rm -f /etc/systemd/system/claude-code@$name.service
+    systemctl stop "claude-code@$name" 2>/dev/null || true
+    systemctl disable "claude-code@$name" 2>/dev/null || true
+    rm -f "/etc/systemd/system/claude-code@$name.service"
     
     # Podmanクリーンアップ（ユーザー権限で）
-    sudo -u claude-$name podman system prune -af >/dev/null 2>&1 || true
+    sudo -u "claude-$name" podman system prune -af >/dev/null 2>&1 || true
     
     # ユーザー削除
-    userdel -r claude-$name 2>/dev/null || true
+    userdel -r "claude-$name" 2>/dev/null || true
     
     systemctl daemon-reload
     
@@ -390,27 +424,27 @@ case "${1:-}" in
         ;;
     start)
         check_project_exists "$2"
-        systemctl start claude-code@$2
+        systemctl start "claude-code@$2"
         echo -e "${GREEN}✅ 起動完了${NC}"
         ;;
     stop)
         check_project_exists "$2"
-        systemctl stop claude-code@$2
+        systemctl stop "claude-code@$2"
         echo -e "${GREEN}✅ 停止完了${NC}"
         ;;
     restart)
         check_project_exists "$2"
-        systemctl restart claude-code@$2
+        systemctl restart "claude-code@$2"
         echo -e "${GREEN}✅ 再起動完了${NC}"
         ;;
     status)
         check_project_exists "$2"
-        systemctl status claude-code@$2 --no-pager
+        systemctl status "claude-code@$2" --no-pager
         ;;
     logs)
         check_project_exists "$2"
         echo "ログを表示中... (Ctrl+C で終了)"
-        journalctl -u claude-code@$2 -f
+        journalctl -u "claude-code@$2" -f
         ;;
     list)
         list_projects

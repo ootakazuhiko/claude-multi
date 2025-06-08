@@ -165,12 +165,12 @@ User=claude-$name
 WorkingDirectory=/home/claude-$name/workspace
 Environment="DOCKER_HOST=unix:///run/user/$uid/podman/podman.sock"
 Environment="CLAUDE_PROJECT=$name"
-Environment="PATH=/home/roota/.nvm/versions/node/v22.16.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStartPre=/bin/bash -c 'sudo -u claude-$name systemctl --user start podman.socket'
-ExecStart=/home/roota/.nvm/versions/node/v22.16.0/bin/claude code
+ExecStart=claude code
 Restart=on-failure
 RestartSec=10
-MemoryLimit=4G
+MemoryMax=4G
 CPUQuota=200%
 
 [Install]

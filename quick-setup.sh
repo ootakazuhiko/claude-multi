@@ -91,8 +91,27 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
     
     # GitHub認証済みの場合のみSSH鍵を追加
     if gh auth status >/dev/null 2>&1; then
-        gh ssh-key add ~/.ssh/id_ed25519.pub --title "Claude Multi - $(hostname)"
-        echo "✓ SSH鍵をGitHubに追加しました"
+        # SSH鍵追加を試行し、スコープエラーを検出
+        ssh_key_output=$(gh ssh-key add ~/.ssh/id_ed25519.pub --title "Claude Multi - $(hostname)" 2>&1)
+        ssh_key_exit_code=$?
+        
+        if [ $ssh_key_exit_code -eq 0 ]; then
+            echo "✓ SSH鍵をGitHubに追加しました"
+        elif echo "$ssh_key_output" | grep -q "admin:public_key"; then
+            echo -e "${YELLOW}⚠️  SSH鍵の追加にはadmin:public_keyスコープが必要です${NC}"
+            echo ""
+            echo "以下のコマンドでGitHub認証を更新してください："
+            echo "  gh auth refresh -h github.com -s admin:public_key"
+            echo ""
+            echo "認証更新後、以下のコマンドでSSH鍵を追加できます："
+            echo "  gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - $(hostname)\""
+        else
+            echo -e "${YELLOW}⚠️  SSH鍵の追加に失敗しました${NC}"
+            echo "エラー詳細: $ssh_key_output"
+            echo ""
+            echo "手動でSSH鍵を追加してください："
+            echo "  gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - $(hostname)\""
+        fi
     else
         echo "✓ SSH鍵を作成しました"
         echo -e "${YELLOW}※ GitHub認証後、以下のコマンドでSSH鍵を追加してください：${NC}"

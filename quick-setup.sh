@@ -154,12 +154,33 @@ fi
 echo ""
 echo "🔑 SSH鍵設定..."
 if [ ! -f ~/.ssh/id_ed25519 ]; then
+    # 入力試行回数制限とタイムアウト保護
+    attempt_count=0
+    max_attempts=5
+    
     while true; do
-        read -rp "GitHubで使用するメールアドレス: " email
-        if validate_email "$email"; then
-            break
+        # 最大試行回数チェック
+        if [ $attempt_count -ge $max_attempts ]; then
+            echo -e "${RED}エラー: 最大試行回数(${max_attempts}回)に達しました${NC}" >&2
+            echo "手動でSSH鍵を作成するか、対話環境で再実行してください。"
+            echo "手動作成例: ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+            exit 1
         fi
-        echo "有効なメールアドレスを入力してください。"
+        
+        # タイムアウト付きで入力を読み取り
+        if read -t 30 -rp "GitHubで使用するメールアドレス: " email 2>/dev/null; then
+            if validate_email "$email"; then
+                break
+            fi
+            echo "有効なメールアドレスを入力してください。"
+        else
+            echo -e "${RED}エラー: 入力タイムアウトまたは非対話環境が検出されました${NC}" >&2
+            echo "対話環境で再実行するか、手動でSSH鍵を作成してください。"
+            echo "手動作成例: ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+            exit 1
+        fi
+        
+        ((attempt_count++))
     done
     
     ssh-keygen -t ed25519 -C "$email" -N "" -f ~/.ssh/id_ed25519

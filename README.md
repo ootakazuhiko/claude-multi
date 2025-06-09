@@ -221,13 +221,20 @@ docker run -d -p 3000:3000 my-app
 
 Claude-Multi環境を使用している場合、Windows Terminalに専用プロファイルを追加できます。
 
+**GUID生成方法：**
+
+Windows Terminalのプロファイルには、**新しく生成した一意のGUID**が必要です。既存のGUIDを参照するのではなく、以下のPowerShellコマンドで**必ず新しいGUIDを作成**してください：
+```powershell
+[guid]::NewGuid().ToString()
+```
+
 **settings.jsonに追加するプロファイル設定：**
 ```json
 {
   "profiles": {
     "list": [
       {
-        "guid": "{生成したGUID}",
+        "guid": "{12345678-1234-1234-1234-123456789012}",
         "name": "Claude Multi 🤖",
         "commandline": "wsl.exe -d Claude-Multi",
         "icon": "🤖",
@@ -237,6 +244,8 @@ Claude-Multi環境を使用している場合、Windows Terminalに専用プロ�
   }
 }
 ```
+
+> **重要**: 上記のGUIDは例です。コピー&ペーストせず、必ず上記のPowerShellコマンドで**新しく生成した一意のGUID**を使用してください。他のプロファイルと同じGUIDを使用すると正常に動作しません。
 
 **PowerShellプロファイルに便利なエイリアスを追加**
 

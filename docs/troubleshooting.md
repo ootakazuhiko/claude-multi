@@ -72,6 +72,30 @@ gh ssh-key add ~/.ssh/id_ed25519.pub --title "Claude Multi - $(hostname)"
 
 このエラーは初回の `gh auth login` 時に必要なスコープが含まれていない場合に発生します。
 
+#### SSH鍵作成時のメールアドレス入力エラー
+
+SSH鍵作成時にメールアドレスの入力でエラーが繰り返し発生する場合：
+
+**よくある入力ミスと解決方法：**
+
+| 入力例 | エラーの原因 | 正しい形式 |
+|--------|-------------|-----------|
+| `user` | @記号がない | `user@example.com` |
+| `user@` | ドメイン名がない | `user@gmail.com` |
+| `user@domain` | 拡張子がない | `user@domain.com` |
+| `user@@domain.com` | @記号が重複 | `user@domain.com` |
+| `user@domain.` | 拡張子が不完全 | `user@domain.com` |
+
+**推奨事項：**
+- GitHubアカウントに登録しているメールアドレスを使用
+- 入力後にスペースや改行が含まれていないか確認
+- コピー＆ペーストを活用して入力ミスを防ぐ
+
+**手動でSSH鍵を作成する場合：**
+```bash
+ssh-keygen -t ed25519 -C "your-email@example.com" -N "" -f ~/.ssh/id_ed25519
+```
+
 ### プロジェクト関連
 
 #### サービスが起動しない

@@ -82,7 +82,7 @@ wsl -d Claude-Multi
 **ステップ2: 初回セットアップ（Claude-Multi環境内で実行）**
 
 ```bash
-bash < <(curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh)
 ```
 
 **ステップ3: WSL環境から一度出る**
@@ -119,7 +119,7 @@ code --remote wsl+Claude-Multi /home/claude-myproject/workspace
 > ⚠️ **重要**: curl | bash では対話入力ができません。必ず以下の手順で実行してください
 
 ```bash
-bash < <(curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh)
 
 ```
 

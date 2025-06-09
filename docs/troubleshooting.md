@@ -24,6 +24,40 @@ wsl --shutdown
 
 Claude Codeは現在限定アクセスです。インストールがスキップされても、他の機能は正常に動作します。
 
+#### WSLセットアップエラー
+
+##### 「指定された名前のディストリビューションはありません」エラー
+
+```
+指定された名前のディストリビューションはありません。
+エラー コード: Wsl/Service/WSL_E_DISTRO_NOT_FOUND
+```
+
+このエラーは `setup-wsl.ps1` 実行時にUbuntu 22.04のインストールが失敗した場合に発生します。
+
+**解決方法：**
+1. WSL機能が有効になっているか確認
+2. 管理者権限でPowerShellを実行
+3. インターネット接続を確認
+4. 時間を置いてから再実行
+
+```powershell
+# WSL機能確認
+dism.exe /online /get-featureinfo /featurename:Microsoft-Windows-Subsystem-Linux
+
+# 手動でUbuntu-22.04をインストール
+wsl --install -d Ubuntu-22.04
+```
+
+##### 「指定されたファイルが見つかりません」エラー
+
+```
+指定されたファイルが見つかりません。
+エラー コード: Wsl/ERROR_FILE_NOT_FOUND
+```
+
+このエラーは一時ファイル（ubuntu-base.tar）の作成に失敗した場合に発生します。スクリプトは自動的にリトライと検証を行うようになりました。
+
 #### SSH鍵の追加で "admin:public_key" スコープエラー
 
 GitHub CLI でSSH鍵を追加する際にスコープエラーが発生する場合：

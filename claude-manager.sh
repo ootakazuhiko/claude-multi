@@ -239,22 +239,37 @@ quickstart() {
     # Git設定
     setup_git "$name"
     
-    # サービス起動
-    systemctl start "claude-code@$name"
-    
-    # 少し待つ
-    echo -n "起動中"
-    for _ in {1..5}; do
-        echo -n "."
-        sleep 1
-    done
-    echo ""
-    
-    # 起動確認
-    if systemctl is-active --quiet "claude-code@$name"; then
-        echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash | ヘルスチェック: claude-manager health $name${NC}"
+    # Claude Code利用可能性チェック
+    if command -v claude >/dev/null 2>&1; then
+        # サービス起動を試行
+        echo -n "起動中"
+        if systemctl start "claude-code@$name" 2>/dev/null; then
+            # 少し待つ
+            for _ in {1..5}; do
+                echo -n "."
+                sleep 1
+            done
+            echo ""
+            
+            # 起動確認
+            if systemctl is-active --quiet "claude-code@$name"; then
+                echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash | ヘルスチェック: claude-manager health $name${NC}"
+            else
+                echo ""
+                echo -e "${RED}⚠️  起動に失敗しました。ログを確認してください: claude-manager logs $name${NC}" >&2
+                echo -e "${YELLOW}💡 認証が必要な場合があります。Claude CLIの設定を確認してください。${NC}" >&2
+            fi
+        else
+            echo ""
+            echo -e "${RED}⚠️  サービスの起動に失敗しました。${NC}" >&2
+            echo -e "${YELLOW}💡 ログを確認: claude-manager logs $name${NC}" >&2
+            echo -e "${YELLOW}💡 Claude認証が必要な場合があります: claude auth login${NC}" >&2
+            echo -e "${GREEN}✨ プロジェクトは作成済み。VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash${NC}"
+        fi
     else
-        echo -e "${RED}⚠️  起動に失敗しました。ログを確認してください: claude-manager logs $name${NC}" >&2
+        echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。プロジェクトは作成されましたが、サービスは起動していません。${NC}"
+        echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash${NC}"
+        echo -e "${YELLOW}💡 Claude Codeが利用可能になった場合は手動で起動: claude-manager start $name${NC}"
     fi
 }
 
@@ -326,16 +341,32 @@ health_check() {
 start_all() {
     echo "🚀 全プロジェクトを起動中..."
     local count=0
+    local failed=0
+    
+    if ! command -v claude >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。すべてのサービスがスキップされます。${NC}"
+        return 1
+    fi
     
     for user in $(getent passwd | grep "^claude-" | cut -d: -f1); do
         local name="${user#claude-}"
-        systemctl start "claude-code@$name" 2>/dev/null
-        echo "  ✓ $name"
-        ((count++))
+        if systemctl start "claude-code@$name" 2>/dev/null; then
+            echo "  ✓ $name"
+            ((count++))
+        else
+            echo "  ✗ $name (失敗)"
+            ((failed++))
+        fi
     done
     
     echo ""
-    echo -e "${GREEN}✅ $count プロジェクトを起動しました${NC}"
+    if [ $failed -eq 0 ]; then
+        echo -e "${GREEN}✅ $count プロジェクトを起動しました${NC}"
+    else
+        echo -e "${YELLOW}⚠️  $count プロジェクトを起動、$failed プロジェクトが失敗しました${NC}"
+        echo -e "${YELLOW}💡 失敗したプロジェクトのログを確認してください: claude-manager logs <project>${NC}"
+        echo -e "${YELLOW}💡 Claude認証が必要な場合があります: claude auth login${NC}"
+    fi
 }
 
 stop_all() {
@@ -399,8 +430,20 @@ case "${1:-}" in
         ;;
     start)
         check_project_exists "$2"
-        systemctl start "claude-code@$2"
-        echo -e "${GREEN}✅ 起動完了${NC}"
+        if command -v claude >/dev/null 2>&1; then
+            if systemctl start "claude-code@$2" 2>/dev/null; then
+                echo -e "${GREEN}✅ 起動完了${NC}"
+            else
+                echo -e "${RED}⚠️  サービスの起動に失敗しました。${NC}" >&2
+                echo -e "${YELLOW}💡 ログを確認: claude-manager logs $2${NC}" >&2
+                echo -e "${YELLOW}💡 Claude認証が必要な場合があります: claude auth login${NC}" >&2
+                exit 1
+            fi
+        else
+            echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。サービスを起動できません。${NC}" >&2
+            echo -e "${YELLOW}💡 Claude Codeが利用可能になってから再実行してください。${NC}" >&2
+            exit 1
+        fi
         ;;
     stop)
         check_project_exists "$2"
@@ -409,8 +452,20 @@ case "${1:-}" in
         ;;
     restart)
         check_project_exists "$2"
-        systemctl restart "claude-code@$2"
-        echo -e "${GREEN}✅ 再起動完了${NC}"
+        if command -v claude >/dev/null 2>&1; then
+            if systemctl restart "claude-code@$2" 2>/dev/null; then
+                echo -e "${GREEN}✅ 再起動完了${NC}"
+            else
+                echo -e "${RED}⚠️  サービスの再起動に失敗しました。${NC}" >&2
+                echo -e "${YELLOW}💡 ログを確認: claude-manager logs $2${NC}" >&2
+                echo -e "${YELLOW}💡 Claude認証が必要な場合があります: claude auth login${NC}" >&2
+                exit 1
+            fi
+        else
+            echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。サービスを再起動できません。${NC}" >&2
+            echo -e "${YELLOW}💡 Claude Codeが利用可能になってから再実行してください。${NC}" >&2
+            exit 1
+        fi
         ;;
     status)
         check_project_exists "$2"

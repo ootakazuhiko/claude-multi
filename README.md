@@ -223,7 +223,7 @@ Claude-Multi環境を使用している場合、Windows Terminalに専用プロ�
 
 **GUID生成方法：**
 
-プロファイルには一意のGUIDが必要です。PowerShellで新しいGUIDを生成：
+Windows Terminalのプロファイルには、**新しく生成した一意のGUID**が必要です。既存のGUIDを参照するのではなく、以下のPowerShellコマンドで**必ず新しいGUIDを作成**してください：
 ```powershell
 [guid]::NewGuid().ToString()
 ```
@@ -245,7 +245,7 @@ Claude-Multi環境を使用している場合、Windows Terminalに専用プロ�
 }
 ```
 
-> **注意**: 上記のGUIDは例です。必ず上記のPowerShellコマンドで生成した一意のGUIDを使用してください。
+> **重要**: 上記のGUIDは例です。コピー&ペーストせず、必ず上記のPowerShellコマンドで**新しく生成した一意のGUID**を使用してください。他のプロファイルと同じGUIDを使用すると正常に動作しません。
 
 **PowerShellプロファイルに便利なエイリアスを追加**
 

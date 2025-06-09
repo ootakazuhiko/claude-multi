@@ -172,7 +172,11 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
             if validate_email "$email"; then
                 break
             fi
-            echo "有効なメールアドレスを入力してください。"
+            # 残り試行回数を表示
+            remaining_attempts=$((max_attempts - attempt_count - 1))
+            if [ $remaining_attempts -gt 0 ]; then
+                echo "残り試行回数: ${remaining_attempts}回"
+            fi
         else
             echo -e "${RED}エラー: 入力タイムアウトまたは非対話環境が検出されました${NC}" >&2
             echo "対話環境で再実行するか、手動でSSH鍵を作成してください。"

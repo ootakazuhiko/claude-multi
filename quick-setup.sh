@@ -15,11 +15,14 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# 対話環境チェック（パイプ実行の検出）
-if [ ! -t 0 ] || [ ! -t 1 ]; then
-    echo -e "${RED}エラー: 非対話環境では実行できません。ファイルをダウンロードしてから bash quick-setup.sh で実行してください${NC}" >&2
-    exit 1
-fi
+# 対話環境チェック関数（必要な時のみ）
+check_interactive() {
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        echo -e "${RED}エラー: この操作には対話的な環境が必要です。ターミナルから実行してください${NC}" >&2
+        return 1
+    fi
+    return 0
+}
 
 # 入力値検証関数
 validate_email() {
@@ -104,10 +107,16 @@ if [ "$WSL_DISTRO_NAME" = "Claude-Multi" ]; then
 else
     echo -e "${YELLOW}⚠️  注意: 現在 $WSL_DISTRO_NAME 環境で実行しています${NC}"
     echo "Claude専用環境（Claude-Multi）の使用を推奨します。このまま続行しますか？ [y/N]: "
-    read -r confirm
-    if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+    if ! check_interactive; then
+        echo "非対話環境のため、Claude-Multi環境での実行を強く推奨します"
         echo "Claude-Multi環境の作成方法: https://github.com/ootakazuhiko/claude-multi#推奨claude専用wsl環境の作成"
-        exit 0
+        echo "このまま続行します..."
+    else
+        read -r confirm
+        if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
+            echo "Claude-Multi環境の作成方法: https://github.com/ootakazuhiko/claude-multi#推奨claude専用wsl環境の作成"
+            exit 0
+        fi
     fi
 fi
 
@@ -131,19 +140,26 @@ if ! command -v claude >/dev/null 2>&1; then
     echo -e "${YELLOW}⚠️  外部スクリプトからClaude Codeをインストールします${NC}"
     echo "インストール元: https://claude.ai/install.sh"
     echo -n "続行しますか？ [y/N]: "
-    read -r install_confirm
     
-    if [ "$install_confirm" = "y" ] || [ "$install_confirm" = "Y" ]; then
-        # 一時ファイルにダウンロードして内容を確認
-        if secure_download "https://claude.ai/install.sh" "/tmp/claude-install.sh" "#!/"; then
-            echo "インストールスクリプトを実行中..."
-            sudo bash /tmp/claude-install.sh
-            rm -f /tmp/claude-install.sh
+    if ! check_interactive; then
+        echo "非対話環境のため、Claude Codeのインストールをスキップします"
+        echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
+        echo "後で手動でインストールしてください: curl -fsSL https://claude.ai/install.sh | sudo bash"
+    else
+        read -r install_confirm
+        
+        if [ "$install_confirm" = "y" ] || [ "$install_confirm" = "Y" ]; then
+            # 一時ファイルにダウンロードして内容を確認
+            if secure_download "https://claude.ai/install.sh" "/tmp/claude-install.sh" "#!/"; then
+                echo "インストールスクリプトを実行中..."
+                sudo bash /tmp/claude-install.sh
+                rm -f /tmp/claude-install.sh
+            else
+                echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
+            fi
         else
             echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
         fi
-    else
-        echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
     fi
 else
     echo "✓ Claude Codeは既にインストールされています"
@@ -173,10 +189,12 @@ echo ""
 echo "🔑 SSH鍵設定..."
 if [ ! -f ~/.ssh/id_ed25519 ]; then
     # 対話環境チェック
-    if [ ! -t 0 ] || [ ! -t 1 ]; then
-        echo -e "${RED}エラー: 非対話環境が検出されました。対話的なターミナル環境で再実行するか、手動でSSH鍵を作成してください${NC}" >&2
-        exit 1
-    fi
+    if ! check_interactive; then
+        echo -e "${YELLOW}非対話環境が検出されました。SSH鍵の生成をスキップします${NC}"
+        echo "後で手動でSSH鍵を作成してください:"
+        echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+        echo "  gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - \$(hostname)\""
+    else
     
     echo "GitHubで使用するメールアドレスを入力してください。"
     echo -e "${YELLOW}注意: GitHubアカウントに登録されているメールアドレスを使用することを推奨します${NC}"
@@ -258,6 +276,7 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
         echo "✓ SSH鍵を作成しました"
         echo -e "${YELLOW}※ GitHub認証後、以下のコマンドでSSH鍵を追加してください：${NC}"
         echo "  gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - $(hostname)\""
+    fi
     fi
 else
     echo "✓ SSH鍵は既に存在します"

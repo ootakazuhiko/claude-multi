@@ -146,7 +146,7 @@ if ! command -v claude >/dev/null 2>&1; then
             echo "非対話環境のため、Node.jsのインストールをスキップします"
             echo -e "${YELLOW}Claude CLIのインストールはスキップされました${NC}"
             echo "手動でNode.js 18以上をインストールしてから、以下のコマンドを実行してください:"
-            echo "  npm install -g @anthropic-ai/claude-cli"
+            echo "  npm install -g @anthropic-ai/claude-code"
             echo "  claude auth"
         else
             read -r install_node
@@ -164,7 +164,7 @@ if ! command -v claude >/dev/null 2>&1; then
     # Node.jsが利用可能な場合、Claude CLIをインストール
     if command -v node >/dev/null 2>&1 && [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -ge 18 ]; then
         echo "Claude CLIをインストール中..."
-        npm install -g @anthropic-ai/claude-cli
+        npm install -g @anthropic-ai/claude-code
         
         echo ""
         echo "🔐 Claude APIキーの設定..."

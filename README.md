@@ -80,8 +80,12 @@ wsl -d Claude-Multi
 ```
 
 **ステップ2: 初回セットアップ（Claude-Multi環境内で実行）**
+
+> ⚠️ **注意**: curl | bash では対話入力ができません。2ステップに分けて実行してください
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh -o quick-setup.sh
+bash quick-setup.sh
 ```
 
 **ステップ3: WSL環境から一度出る**
@@ -113,10 +117,12 @@ code --remote wsl+Claude-Multi /home/claude-myproject/workspace
 
 **初回セットアップ（既存のUbuntu環境で実行）**
 
-> ⚠️ **注意**: 専用環境の作成を推奨します
+> ⚠️ **注意**: 専用環境の作成を推奨します  
+> ⚠️ **注意**: curl | bash では対話入力ができません。2ステップに分けて実行してください
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh -o quick-setup.sh
+bash quick-setup.sh
 ```
 
 その後は方法1のステップ3以降と同様の手順を実行してください。

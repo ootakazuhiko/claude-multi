@@ -179,7 +179,14 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
     if [ ! -t 0 ] || [ ! -t 1 ]; then
         echo -e "${RED}エラー: 非対話環境が検出されました${NC}" >&2
         echo "標準入力または標準出力がターミナルに接続されていません。"
-        echo "対話的なターミナル環境で再実行するか、手動でSSH鍵を作成してください。"
+        echo ""
+        echo -e "${YELLOW}「curl | bash」形式で実行している場合は対話入力ができません。${NC}"
+        echo "以下の2ステップ形式で再実行してください："
+        echo ""
+        echo "  curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh -o quick-setup.sh"
+        echo "  bash quick-setup.sh"
+        echo ""
+        echo "または、対話的なターミナル環境で再実行するか、手動でSSH鍵を作成してください。"
         echo ""
         echo "手動作成例:"
         echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"

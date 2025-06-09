@@ -149,4 +149,4 @@ Write-Host "次のコマンドでClaude-Multi環境に入ってください："
 Write-Host "  wsl -d Claude-Multi" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "その後、実行したClaude-MultiのUbuntu環境で以下を実行してください："
-Write-Host "  curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh | bash" -ForegroundColor Cyan
+Write-Host "  bash < <(curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh)" -ForegroundColor Cyan

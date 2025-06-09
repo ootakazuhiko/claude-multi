@@ -91,7 +91,7 @@ error_exit() {
 cleanup_on_error() {
     echo "クリーンアップ中..."
     # 一時ファイルのクリーンアップ
-    rm -f /tmp/claude-install.sh /tmp/claude-manager.sh
+    rm -f /tmp/claude-manager.sh
     # その他必要なクリーンアップがあればここに追加
 }
 
@@ -135,35 +135,47 @@ EOF
 fi
 
 echo ""
-echo "🤖 Claude Codeをインストール中..."
+echo "🤖 Claude CLIをインストール中..."
 if ! command -v claude >/dev/null 2>&1; then
-    echo -e "${YELLOW}⚠️  外部スクリプトからClaude Codeをインストールします${NC}"
-    echo "インストール元: https://claude.ai/install.sh"
-    echo -n "続行しますか？ [y/N]: "
-    
-    if ! check_interactive; then
-        echo "非対話環境のため、Claude Codeのインストールをスキップします"
-        echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
-        echo "後で手動でインストールしてください: curl -fsSL https://claude.ai/install.sh | sudo bash"
-    else
-        read -r install_confirm
+    # Node.js 18以上がインストールされていることを確認
+    if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt 18 ]; then
+        echo -e "${YELLOW}⚠️  Node.js 18以上が必要です${NC}"
+        echo -n "Node.js 18以上をインストールしますか？ [y/N]: "
         
-        if [ "$install_confirm" = "y" ] || [ "$install_confirm" = "Y" ]; then
-            # 一時ファイルにダウンロードして内容を確認
-            if secure_download "https://claude.ai/install.sh" "/tmp/claude-install.sh" "#!/"; then
-                echo "インストールスクリプトを実行中..."
-                sudo bash /tmp/claude-install.sh
-                rm -f /tmp/claude-install.sh
-            else
-                echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
-                echo -e "${YELLOW}💡 後で手動でインストールできます。Claude公式サイトからインストール方法を確認してください${NC}"
-            fi
+        if ! check_interactive; then
+            echo "非対話環境のため、Node.jsのインストールをスキップします"
+            echo -e "${YELLOW}Claude CLIのインストールはスキップされました${NC}"
+            echo "手動でNode.js 18以上をインストールしてから、以下のコマンドを実行してください:"
+            echo "  npm install -g @anthropic-ai/claude-cli"
+            echo "  claude auth"
         else
-            echo -e "${YELLOW}Claude Codeのインストールはスキップされました${NC}"
+            read -r install_node
+            if [ "$install_node" = "y" ] || [ "$install_node" = "Y" ]; then
+                echo "Node.js LTSをインストール中..."
+                curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+                sudo apt-get install -y nodejs
+            else
+                echo "手動でNode.js 18以上をインストールしてください。"
+                echo -e "${YELLOW}Claude CLIのインストールはスキップされました${NC}"
+            fi
         fi
     fi
+    
+    # Node.jsが利用可能な場合、Claude CLIをインストール
+    if command -v node >/dev/null 2>&1 && [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -ge 18 ]; then
+        echo "Claude CLIをインストール中..."
+        npm install -g @anthropic-ai/claude-cli
+        
+        echo ""
+        echo "🔐 Claude APIキーの設定..."
+        echo "APIキーの設定を行います。以下のコマンドを実行してください:"
+        echo "  claude auth"
+        echo ""
+        echo "インストール完了後、claude --version で動作確認できます。"
+        echo "詳細なトラブルシューティングや使い方は公式ドキュメントを参照してください。"
+    fi
 else
-    echo "✓ Claude Codeは既にインストールされています"
+    echo "✓ Claude CLIは既にインストールされています"
 fi
 
 echo ""

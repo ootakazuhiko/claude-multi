@@ -20,28 +20,47 @@
 
 ### 専用環境のセットアップ（推奨）
 
+**方法1: 自動セットアップスクリプトを使用（推奨）**
+
+PowerShell（管理者権限）でセットアップスクリプトをダウンロード：
 ```powershell
-# PowerShell（管理者権限）で実行
-
-# 自動セットアップスクリプトを使用（推奨）
 Invoke-WebRequest -Uri https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/setup-wsl.ps1 -OutFile setup-wsl.ps1
+```
+
+セットアップスクリプトを実行：
+```powershell
 .\setup-wsl.ps1
+```
 
-# または手動で実行する場合：
-# 1. Ubuntu 22.04を準備（既存の場合はスキップ）
-wsl --install -d Ubuntu-22.04  # 既に存在する場合はエラーになるが問題なし
+**方法2: 手動セットアップ**
 
-# 2. エクスポート
+1. Ubuntu 22.04を準備（既存の場合はスキップ）：
+```powershell  
+wsl --install -d Ubuntu-22.04
+```
+
+2. Ubuntu 22.04をエクスポート：
+```powershell
 wsl --export Ubuntu-22.04 ubuntu-base.tar
+```
 
-# 3. Claude-Multi という名前で再インポート  
+3. Claude-Multi用のディレクトリを作成：
+```powershell
 New-Item -ItemType Directory -Path "$env:USERPROFILE\WSL\Claude-Multi" -Force
+```
+
+4. Claude-Multi環境としてインポート：
+```powershell
 wsl --import Claude-Multi "$env:USERPROFILE\WSL\Claude-Multi" ubuntu-base.tar
+```
 
-# 4. クリーンアップ
+5. 一時ファイルをクリーンアップ：
+```powershell
 Remove-Item ubuntu-base.tar
+```
 
-# 5. Claude-Multi環境に入る
+6. Claude-Multi環境に入る：
+```powershell
 wsl -d Claude-Multi
 ```
 
@@ -55,77 +74,151 @@ wsl -d Claude-Multi
 
 ### 方法1: Claude専用環境（推奨）
 
+**ステップ1: Claude-Multi環境に入る**
 ```bash
-# 0. Claude-Multi環境を作成（上記参照）して入る
 wsl -d Claude-Multi
+```
 
-# 1. 初回セットアップ（Claude-Multi環境内で実行）
+**ステップ2: 初回セットアップ（Claude-Multi環境内で実行）**
+```bash
 curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh | bash
+```
 
-# 2. WSL再起動
+**ステップ3: WSL環境から一度出る**
+```bash
 exit
-# PowerShellで: wsl --shutdown
-# 再度Claude-Multi環境に入る: wsl -d Claude-Multi
+```
 
-# 3. プロジェクト作成・起動
+**ステップ4: WSLを再起動（PowerShellで実行）**
+```powershell
+wsl --shutdown
+```
+
+**ステップ5: Claude-Multi環境に再度入る**
+```bash
+wsl -d Claude-Multi
+```
+
+**ステップ6: プロジェクトを作成・起動**
+```bash
 claude-manager quickstart myproject
+```
 
-# 4. VS Codeで開く（PowerShellから）
+**ステップ7: VS Codeで開く（PowerShellから実行）**
+```powershell
 code --remote wsl+Claude-Multi /home/claude-myproject/workspace
 ```
 
 ### 方法2: 既存のWSL環境
 
+**初回セットアップ（既存のUbuntu環境で実行）**
+
+> ⚠️ **注意**: 専用環境の作成を推奨します
+
 ```bash
-# 既存のUbuntu環境で実行（非推奨）
 curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh | bash
-# 以下同様...
 ```
+
+その後は方法1のステップ3以降と同様の手順を実行してください。
 
 ## 使い方
 
 ### 基本コマンド
 
+**プロジェクト管理**
+
+プロジェクトを作成して起動：
 ```bash
-# プロジェクト管理
-claude-manager quickstart <name>  # プロジェクト作成と起動
-claude-manager create <name>      # プロジェクト作成のみ
-claude-manager delete <name>      # プロジェクト削除
-claude-manager list               # 全プロジェクト一覧
+claude-manager quickstart <name>
+```
 
-# サービス制御
-claude-manager start <name>       # 起動
-claude-manager stop <name>        # 停止
-claude-manager restart <name>     # 再起動
-claude-manager start-all          # 全プロジェクト起動
-claude-manager stop-all           # 全プロジェクト停止
+プロジェクトを作成のみ（起動はしない）：
+```bash
+claude-manager create <name>
+```
 
-# 状態確認
-claude-manager status <name>      # サービス状態
-claude-manager health <name>      # ヘルスチェック
-claude-manager logs <name>        # ログ表示
+プロジェクトを削除：
+```bash
+claude-manager delete <name>
+```
+
+全プロジェクト一覧を表示：
+```bash
+claude-manager list
+```
+
+**サービス制御**
+
+プロジェクトを起動：
+```bash
+claude-manager start <name>
+```
+
+プロジェクトを停止：
+```bash
+claude-manager stop <name>
+```
+
+プロジェクトを再起動：
+```bash
+claude-manager restart <name>
+```
+
+全プロジェクトを起動：
+```bash
+claude-manager start-all
+```
+
+全プロジェクトを停止：
+```bash
+claude-manager stop-all
+```
+
+**状態確認**
+
+サービス状態を確認：
+```bash
+claude-manager status <name>
+```
+
+ヘルスチェックを実行：
+```bash
+claude-manager health <name>
+```
+
+ログを表示：
+```bash
+claude-manager logs <name>
 ```
 
 ### プロジェクトでの作業
 
+**プロジェクト環境に入る**
 ```bash
-# プロジェクト環境に入る
 sudo -u claude-myproject -i bash
+```
 
-# リポジトリをクローン
+**ワークスペースディレクトリに移動**
+```bash
 cd workspace
-gh repo clone myorg/myrepo
+```
 
-# Podmanでコンテナ実行（dockerコマンドが使える）
+**GitHubリポジトリをクローン**
+```bash
+gh repo clone myorg/myrepo
+```
+
+**Podmanでコンテナを実行（dockerコマンドとして使用可能）**
+```bash
 docker run -d -p 3000:3000 my-app
 ```
 
 ## Windows Terminal統合
 
-Claude-Multi環境を使用している場合、Windows Terminalに専用プロファイルを追加できます：
+Claude-Multi環境を使用している場合、Windows Terminalに専用プロファイルを追加できます。
 
+**settings.jsonに追加するプロファイル設定：**
 ```json
-// settings.json
 {
   "profiles": {
     "list": [
@@ -141,19 +234,35 @@ Claude-Multi環境を使用している場合、Windows Terminalに専用プロ�
 }
 ```
 
-PowerShellで便利なエイリアスも設定できます：
+**PowerShellプロファイルに便利なエイリアスを追加**
+
+`$PROFILE`ファイルに以下の関数を追加：
 
 ```powershell
-# $PROFILE に追加
 function claude { wsl -d Claude-Multi claude-manager @args }
+```
+
+```powershell
 function claude-code { 
     param($project)
     code --remote wsl+Claude-Multi /home/claude-$project/workspace
 }
+```
 
-# 使用例
+**使用例：**
+
+プロジェクト一覧を表示：
+```powershell
 claude list
+```
+
+新しいプロジェクトを作成：
+```powershell
 claude quickstart myapp
+```
+
+VS Codeでプロジェクトを開く：
+```powershell
 claude-code myapp
 ```
 

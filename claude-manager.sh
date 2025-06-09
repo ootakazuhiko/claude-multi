@@ -150,7 +150,7 @@ docker logs myapp
 CLAUDE_EOF
     
     # systemdサービス作成
-    cat > "/etc/systemd/system/claude-code@$name.service" <<SERVICE_EOF
+    cat > "/etc/systemd/system/claude-code-$name.service" <<SERVICE_EOF
 [Unit]
 Description=Claude Code - $name
 After=network.target
@@ -174,7 +174,7 @@ WantedBy=multi-user.target
 SERVICE_EOF
     
     systemctl daemon-reload
-    systemctl enable "claude-code@$name" >/dev/null 2>&1
+    systemctl enable "claude-code-$name" >/dev/null 2>&1
     
     echo -e "${GREEN}✅ プロジェクト作成完了${NC}"
 }
@@ -243,7 +243,7 @@ quickstart() {
     if command -v claude >/dev/null 2>&1; then
         # サービス起動を試行
         echo -n "起動中"
-        if systemctl start "claude-code@$name" 2>/dev/null; then
+        if systemctl start "claude-code-$name" 2>/dev/null; then
             # 少し待つ
             for _ in {1..5}; do
                 echo -n "."
@@ -252,7 +252,7 @@ quickstart() {
             echo ""
             
             # 起動確認
-            if systemctl is-active --quiet "claude-code@$name"; then
+            if systemctl is-active --quiet "claude-code-$name"; then
                 echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash | ヘルスチェック: claude-manager health $name${NC}"
             else
                 echo ""
@@ -286,7 +286,7 @@ list_projects() {
         projects_found=true
         local name="${user#claude-}"
         local status
-        status=$(systemctl is-active "claude-code@$name" 2>/dev/null)
+        status=$(systemctl is-active "claude-code-$name" 2>/dev/null)
         local workspace="/home/$user/workspace"
         
         if [ "$status" = "active" ]; then
@@ -312,7 +312,7 @@ health_check() {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
     # サービス状態
-    if systemctl is-active --quiet "claude-code@$name"; then
+    if systemctl is-active --quiet "claude-code-$name"; then
         echo -e "Claude Code:      ${GREEN}● 正常${NC}"
     else
         echo -e "Claude Code:      ${RED}● 異常${NC} (起動するには: claude-manager start $name)" >&2
@@ -350,7 +350,7 @@ start_all() {
     
     for user in $(getent passwd | grep "^claude-" | cut -d: -f1); do
         local name="${user#claude-}"
-        if systemctl start "claude-code@$name" 2>/dev/null; then
+        if systemctl start "claude-code-$name" 2>/dev/null; then
             echo "  ✓ $name"
             ((count++))
         else
@@ -375,7 +375,7 @@ stop_all() {
     
     for user in $(getent passwd | grep "^claude-" | cut -d: -f1); do
         local name="${user#claude-}"
-        systemctl stop "claude-code@$name" 2>/dev/null
+        systemctl stop "claude-code-$name" 2>/dev/null
         echo "  ✓ $name"
         ((count++))
     done
@@ -401,9 +401,9 @@ delete_project() {
     echo "削除中..."
     
     # サービス停止・無効化
-    systemctl stop "claude-code@$name" 2>/dev/null || true
-    systemctl disable "claude-code@$name" 2>/dev/null || true
-    rm -f "/etc/systemd/system/claude-code@$name.service"
+    systemctl stop "claude-code-$name" 2>/dev/null || true
+    systemctl disable "claude-code-$name" 2>/dev/null || true
+    rm -f "/etc/systemd/system/claude-code-$name.service"
     
     # Podmanクリーンアップ（ユーザー権限で）
     sudo -u "claude-$name" podman system prune -af >/dev/null 2>&1 || true
@@ -431,7 +431,7 @@ case "${1:-}" in
     start)
         check_project_exists "$2"
         if command -v claude >/dev/null 2>&1; then
-            if systemctl start "claude-code@$2" 2>/dev/null; then
+            if systemctl start "claude-code-$2" 2>/dev/null; then
                 echo -e "${GREEN}✅ 起動完了${NC}"
             else
                 echo -e "${RED}⚠️  サービスの起動に失敗しました。${NC}" >&2
@@ -447,13 +447,13 @@ case "${1:-}" in
         ;;
     stop)
         check_project_exists "$2"
-        systemctl stop "claude-code@$2"
+        systemctl stop "claude-code-$2"
         echo -e "${GREEN}✅ 停止完了${NC}"
         ;;
     restart)
         check_project_exists "$2"
         if command -v claude >/dev/null 2>&1; then
-            if systemctl restart "claude-code@$2" 2>/dev/null; then
+            if systemctl restart "claude-code-$2" 2>/dev/null; then
                 echo -e "${GREEN}✅ 再起動完了${NC}"
             else
                 echo -e "${RED}⚠️  サービスの再起動に失敗しました。${NC}" >&2
@@ -469,12 +469,12 @@ case "${1:-}" in
         ;;
     status)
         check_project_exists "$2"
-        systemctl status "claude-code@$2" --no-pager
+        systemctl status "claude-code-$2" --no-pager
         ;;
     logs)
         check_project_exists "$2"
         echo "ログを表示中... (Ctrl+C で終了)"
-        journalctl -u "claude-code@$2" -f
+        journalctl -u "claude-code-$2" -f
         ;;
     list)
         list_projects

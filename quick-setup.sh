@@ -125,6 +125,17 @@ sudo apt update || error_exit "apt updateに失敗しました"
 sudo apt install -y podman git gh curl || error_exit "パッケージインストールに失敗しました"
 
 echo ""
+echo "📦 Node.js 20をインストール中..."
+if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt 18 ]; then
+    echo "Node.js 20をインストール中..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+    echo "✓ Node.js $(node -v) をインストールしました"
+else
+    echo "✓ Node.js $(node -v) は既にインストールされています"
+fi
+
+echo ""
 echo "⚙️  systemdを有効化..."
 if ! grep -q "systemd=true" /etc/wsl.conf 2>/dev/null; then
     sudo tee /etc/wsl.conf > /dev/null <<EOF
@@ -138,30 +149,6 @@ echo ""
 echo "🤖 Claude CLIをインストール中..."
 if ! command -v claude >/dev/null 2>&1; then
     # Node.js 18以上がインストールされていることを確認
-    if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -lt 18 ]; then
-        echo -e "${YELLOW}⚠️  Node.js 18以上が必要です${NC}"
-        echo -n "Node.js 18以上をインストールしますか？ [y/N]: "
-        
-        if ! check_interactive; then
-            echo "非対話環境のため、Node.jsのインストールをスキップします"
-            echo -e "${YELLOW}Claude CLIのインストールはスキップされました${NC}"
-            echo "手動でNode.js 18以上をインストールしてから、以下のコマンドを実行してください:"
-            echo "  npm install -g @anthropic-ai/claude-code"
-            echo "  claude auth"
-        else
-            read -r install_node
-            if [ "$install_node" = "y" ] || [ "$install_node" = "Y" ]; then
-                echo "Node.js LTSをインストール中..."
-                curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-                sudo apt-get install -y nodejs
-            else
-                echo "手動でNode.js 18以上をインストールしてください。"
-                echo -e "${YELLOW}Claude CLIのインストールはスキップされました${NC}"
-            fi
-        fi
-    fi
-    
-    # Node.jsが利用可能な場合、Claude CLIをインストール
     if command -v node >/dev/null 2>&1 && [ "$(node -v | cut -d'.' -f1 | tr -d 'v')" -ge 18 ]; then
         echo "Claude CLIをインストール中..."
         npm install -g @anthropic-ai/claude-code
@@ -173,6 +160,9 @@ if ! command -v claude >/dev/null 2>&1; then
         echo ""
         echo "インストール完了後、claude --version で動作確認できます。"
         echo "詳細なトラブルシューティングや使い方は公式ドキュメントを参照してください。"
+    else
+        echo -e "${RED}エラー: Node.js 18以上が必要ですが、利用可能ではありません${NC}"
+        echo "Node.jsのインストールに問題がある可能性があります。"
     fi
 else
     echo "✓ Claude CLIは既にインストールされています"

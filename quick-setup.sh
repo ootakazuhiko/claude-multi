@@ -15,6 +15,20 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# 対話環境チェック（パイプ実行の検出）
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+    echo -e "${RED}エラー: curl | bash での実行は対話入力ができません${NC}" >&2
+    echo ""
+    echo "必ず以下の手順で実行してください:"
+    echo ""
+    echo "  curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh -o quick-setup.sh"
+    echo "  bash quick-setup.sh"
+    echo ""
+    echo "標準入力または標準出力がターミナルに接続されていないため、"
+    echo "対話的な入力（y/N選択、メールアドレス入力など）ができません。"
+    exit 1
+fi
+
 # 入力値検証関数
 validate_email() {
     local email="$1"

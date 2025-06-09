@@ -116,8 +116,11 @@ code --remote wsl+Claude-Multi /home/claude-myproject/workspace
 
 > ⚠️ **注意**: 専用環境の作成を推奨します
 
+> ⚠️ **重要**: curl | bash では対話入力ができません。必ず以下の手順で実行してください
+
 ```bash
 bash < <(curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh)
+
 ```
 
 その後は方法1のステップ3以降と同様の手順を実行してください。

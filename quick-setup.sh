@@ -17,15 +17,7 @@ NC='\033[0m'
 
 # 対話環境チェック（パイプ実行の検出）
 if [ ! -t 0 ] || [ ! -t 1 ]; then
-    echo -e "${RED}エラー: curl | bash での実行は対話入力ができません${NC}" >&2
-    echo ""
-    echo "必ず以下の手順で実行してください:"
-    echo ""
-    echo "  curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh -o quick-setup.sh"
-    echo "  bash quick-setup.sh"
-    echo ""
-    echo "標準入力または標準出力がターミナルに接続されていないため、"
-    echo "対話的な入力（y/N選択、メールアドレス入力など）ができません。"
+    echo -e "${RED}エラー: 非対話環境では実行できません。ファイルをダウンロードしてから bash quick-setup.sh で実行してください${NC}" >&2
     exit 1
 fi
 
@@ -33,20 +25,15 @@ fi
 validate_email() {
     local email="$1"
     if [ -z "$email" ]; then
-        echo ""
-        echo -e "${RED}エラー: メールアドレスが入力されていません${NC}" >&2
-        echo -e "${YELLOW}例: user@example.com, name@domain.co.jp${NC}" >&2
+        echo -e "${RED}エラー: メールアドレスが入力されていません (例: user@example.com)${NC}" >&2
         return 1
     fi
     
     # 基本的なメールアドレス形式チェック
     if ! [[ "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-        echo ""
-        echo -e "${RED}❌ エラー: 有効なメールアドレス形式ではありません${NC}" >&2
-        echo -e "${YELLOW}正しい形式: ユーザー名@ドメイン名.拡張子 (例: user@example.com)${NC}" >&2
-        echo ""
+        echo -e "${RED}❌ エラー: 有効なメールアドレス形式ではありません (正しい形式: user@example.com)${NC}" >&2
         
-        # より具体的なヒントを提供
+        # より具体的なヒントを提供（ワンライナー形式）
         if [[ ! "$email" =~ @ ]]; then
             echo -e "${YELLOW}💡 ヒント: '@'記号が必要です${NC}" >&2
         elif [[ "$email" =~ @.*@.* ]]; then
@@ -59,7 +46,7 @@ validate_email() {
             echo -e "${YELLOW}💡 ヒント: ドメインの拡張子が必要です (例: .com, .org)${NC}" >&2
         fi
         
-        echo -e "${YELLOW}💡 推奨: GitHubアカウントに登録済みのメールアドレスをコピペしてください${NC}" >&2
+        echo -e "${YELLOW}💡 推奨: GitHubアカウント登録済みメールアドレスをコピペしてください${NC}" >&2
         
         return 1
     fi
@@ -191,18 +178,7 @@ echo "🔑 SSH鍵設定..."
 if [ ! -f ~/.ssh/id_ed25519 ]; then
     # 対話環境チェック
     if [ ! -t 0 ] || [ ! -t 1 ]; then
-        echo -e "${RED}エラー: 非対話環境が検出されました${NC}" >&2
-        echo "標準入力または標準出力がターミナルに接続されていません。"
-        echo ""
-        echo -e "${YELLOW}「curl | bash」形式で実行している場合は対話入力ができません。${NC}"
-        echo "以下の形式で再実行してください："
-        echo ""
-        echo "  bash < <(curl -fsSL https://raw.githubusercontent.com/ootakazuhiko/claude-multi/main/quick-setup.sh)"
-        echo ""
-        echo "または、対話的なターミナル環境で再実行するか、手動でSSH鍵を作成してください。"
-        echo ""
-        echo "手動作成例:"
-        echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+        echo -e "${RED}エラー: 非対話環境が検出されました。対話的なターミナル環境で再実行するか、手動でSSH鍵を作成してください${NC}" >&2
         exit 1
     fi
     
@@ -218,46 +194,27 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
     while true; do
         # 最大試行回数チェック
         if [ $attempt_count -ge $max_attempts ]; then
-            echo ""
-            echo -e "${RED}エラー: 最大試行回数(${max_attempts}回)に達しました${NC}" >&2
-            echo "有効なメールアドレスが入力されませんでした。"
-            echo ""
-            echo -e "${YELLOW}詳しいヘルプとよくある入力ミスについては以下を参照してください：${NC}"
-            echo "  docs/troubleshooting.md の「SSH鍵作成時のメールアドレス入力エラー」"
-            echo ""
-            echo "手動でSSH鍵を作成するか、対話環境で再実行してください。"
-            echo ""
-            echo "手動作成例:"
-            echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+            echo -e "${RED}エラー: 最大試行回数(${max_attempts}回)に達しました。手動でSSH鍵を作成してください: ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519${NC}" >&2
             exit 1
         fi
         
         # 試行回数表示（初回以外）
         if [ $attempt_count -gt 0 ]; then
-            echo ""
-            echo -e "${YELLOW}--- 再入力をお願いします (試行 $((attempt_count + 1))/${max_attempts}) ---${NC}"
-            if [ -n "$last_input" ]; then
-                echo -e "${YELLOW}前回の入力: ${NC}「${last_input}」"
-                echo -e "${YELLOW}※ スペースや改行が混入していないか、コピペミスがないか確認してください${NC}"
-            fi
+            echo -e "${YELLOW}--- 再入力をお願いします (試行 $((attempt_count + 1))/${max_attempts}) ---${NC}" && [ -n "$last_input" ] && echo -e "${YELLOW}前回の入力: ${NC}「${last_input}」"
         fi
         
         # 入力プロンプト表示
         echo -n "GitHubで使用するメールアドレス: "
         
-        # タイムアウト付きで入力を読み取り（標準エラー出力をキャプチャして問題を診断）
-        read_error=""
-        if email=$(timeout 30 bash -c 'read -r input && echo "$input"' 2>&1); then
+        # タイムアウト付きで入力を読み取り
+        if email=$(timeout 30 bash -c "read -r input && echo \"\$input\"" 2>&1); then
             # 前後の空白を除去
             email=$(echo "$email" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             last_input="$email"
             
             # 空白文字や改行の混入をチェック
             if [[ "$email" =~ [[:space:]] ]]; then
-                echo ""
-                echo -e "${YELLOW}⚠️  メールアドレスにスペースや改行が含まれています${NC}"
-                echo -e "${YELLOW}入力内容: 「${email}」${NC}"
-                echo -e "${YELLOW}スペースや改行を除去して再入力してください${NC}"
+                echo -e "${YELLOW}⚠️  メールアドレスにスペースや改行が含まれています: 「${email}」${NC}"
             elif validate_email "$email"; then
                 echo -e "${GREEN}✓ 有効なメールアドレスです: $email${NC}"
                 break
@@ -269,17 +226,12 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
             fi
         else
             read_exit_code=$?
-            echo ""
             if [ $read_exit_code -eq 124 ]; then
                 echo -e "${RED}エラー: 入力タイムアウト（30秒）${NC}" >&2
             else
                 echo -e "${RED}エラー: 入力の読み取りに失敗しました（終了コード: $read_exit_code）${NC}" >&2
-                echo -e "${YELLOW}デバッグ情報: stdin=$([ -t 0 ] && echo "TTY" || echo "非TTY"), stdout=$([ -t 1 ] && echo "TTY" || echo "非TTY")${NC}" >&2
             fi
-            echo "対話環境で再実行するか、手動でSSH鍵を作成してください。"
-            echo ""
-            echo "手動作成例:"
-            echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+            echo "対話環境で再実行するか、手動でSSH鍵を作成してください: ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
             exit 1
         fi
         
@@ -346,15 +298,4 @@ if ! grep -q "alias claude-manager" ~/.bashrc; then
     echo 'alias claude-manager="sudo /opt/claude-shared/claude-manager.sh"' >> ~/.bashrc
 fi
 
-echo ""
-echo -e "${GREEN}✅ セットアップ完了！${NC}"
-echo ""
-echo "次の手順:"
-echo "1. WSLを再起動してください:"
-echo "   exit"
-echo "   # PowerShellで: wsl --shutdown"
-echo "   wsl -d Claude-Multi"
-echo ""
-echo "2. プロジェクトを作成:"
-echo "   claude-manager quickstart myproject"
-echo ""
+echo -e "${GREEN}✅ セットアップ完了！次の手順: 1) WSL再起動 (exit → wsl --shutdown → wsl -d Claude-Multi) 2) プロジェクト作成 (claude-manager quickstart myproject)${NC}"

@@ -69,9 +69,7 @@ check_project_exists() {
     validate_project_name "$name" || exit 1
     
     if ! id "claude-$name" &>/dev/null; then
-        echo -e "${RED}エラー: プロジェクト '$name' が存在しません${NC}" >&2
-        echo "利用可能なプロジェクト:" >&2
-        list_projects_simple
+        echo -e "${RED}エラー: プロジェクト '$name' が存在しません。利用可能なプロジェクト: $(list_projects_simple | tr '\n' ' ')${NC}" >&2
         exit 1
     fi
 }
@@ -87,9 +85,7 @@ get_next_uid() {
 
 # シンプルなプロジェクト一覧（エラー時用）
 list_projects_simple() {
-    for user in $(getent passwd | grep "^claude-" | cut -d: -f1 | sort); do
-        echo "  - ${user#claude-}"
-    done
+    getent passwd | grep "^claude-" | cut -d: -f1 | sed 's/^claude-//' | sort | tr '\n' ' '
 }
 
 # プロジェクト作成
@@ -256,22 +252,9 @@ quickstart() {
     
     # 起動確認
     if systemctl is-active --quiet "claude-code@$name"; then
-        echo ""
-        echo -e "${GREEN}✨ セットアップ完了！${NC}"
-        echo ""
-        echo "📂 VS Codeで開く:"
-        echo "  code --remote wsl+Ubuntu /home/claude-$name/workspace"
-        echo ""
-        echo "📋 プロジェクトに入る:"
-        echo "  sudo -u claude-$name -i bash"
-        echo ""
-        echo "🔍 状態確認:"
-        echo "  claude-manager health $name"
+        echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash | ヘルスチェック: claude-manager health $name${NC}"
     else
-        echo ""
-        echo -e "${RED}⚠️  起動に失敗しました${NC}" >&2
-        echo "ログを確認してください:" >&2
-        echo "  claude-manager logs $name" >&2
+        echo -e "${RED}⚠️  起動に失敗しました。ログを確認してください: claude-manager logs $name${NC}" >&2
     fi
 }
 
@@ -301,9 +284,7 @@ list_projects() {
     done
     
     if [ "$projects_found" = false ]; then
-        echo "プロジェクトがありません"
-        echo ""
-        echo "作成するには: claude-manager quickstart <n>"
+        echo "プロジェクトがありません (作成するには: claude-manager quickstart <n>)"
     fi
 }
 
@@ -319,9 +300,7 @@ health_check() {
     if systemctl is-active --quiet "claude-code@$name"; then
         echo -e "Claude Code:      ${GREEN}● 正常${NC}"
     else
-        echo -e "Claude Code:      ${RED}● 異常${NC}" >&2
-        echo "" >&2
-        echo "起動するには: claude-manager start $name" >&2
+        echo -e "Claude Code:      ${RED}● 異常${NC} (起動するには: claude-manager start $name)" >&2
         return 1
     fi
     
@@ -379,11 +358,7 @@ delete_project() {
     local name="$1"
     check_project_exists "$name"
     
-    echo -e "${YELLOW}⚠️  警告: この操作は取り消せません${NC}" >&2
-    echo "プロジェクト '$name' の以下が削除されます:"
-    echo "  - /home/claude-$name 以下のすべてのファイル"
-    echo "  - 実行中のコンテナとイメージ"
-    echo ""
+    echo -e "${YELLOW}⚠️  警告: プロジェクト '$name' の /home/claude-$name と実行中コンテナが削除されます (取り消し不可)${NC}" >&2
     echo -n "本当に削除しますか？ [yes/N]: "
     read -r confirm
     

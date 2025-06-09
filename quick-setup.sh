@@ -103,14 +103,10 @@ if [ "$WSL_DISTRO_NAME" = "Claude-Multi" ]; then
     echo -e "${GREEN}✓ Claude-Multi環境で実行中${NC}"
 else
     echo -e "${YELLOW}⚠️  注意: 現在 $WSL_DISTRO_NAME 環境で実行しています${NC}"
-    echo "Claude専用環境（Claude-Multi）の使用を推奨します。"
-    echo ""
-    echo -n "このまま続行しますか？ [y/N]: "
+    echo "Claude専用環境（Claude-Multi）の使用を推奨します。このまま続行しますか？ [y/N]: "
     read -r confirm
     if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
-        echo ""
-        echo "Claude-Multi環境の作成方法："
-        echo "https://github.com/ootakazuhiko/claude-multi#推奨claude専用wsl環境の作成"
+        echo "Claude-Multi環境の作成方法: https://github.com/ootakazuhiko/claude-multi#推奨claude専用wsl環境の作成"
         exit 0
     fi
 fi
@@ -254,19 +250,9 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
         if [ $ssh_key_exit_code -eq 0 ]; then
             echo "✓ SSH鍵をGitHubに追加しました"
         elif echo "$ssh_key_output" | grep -q "admin:public_key"; then
-            echo -e "${YELLOW}⚠️  SSH鍵の追加にはadmin:public_keyスコープが必要です${NC}"
-            echo ""
-            echo "以下のコマンドでGitHub認証を更新してください："
-            echo "  gh auth refresh -h github.com -s admin:public_key"
-            echo ""
-            echo "認証更新後、以下のコマンドでSSH鍵を追加できます："
-            echo "  gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - $(hostname)\""
+            echo -e "${YELLOW}⚠️  SSH鍵の追加にはadmin:public_keyスコープが必要です。認証更新: gh auth refresh -h github.com -s admin:public_key${NC}"
         else
-            echo -e "${YELLOW}⚠️  SSH鍵の追加に失敗しました${NC}"
-            echo "エラー詳細: $ssh_key_output"
-            echo ""
-            echo "手動でSSH鍵を追加してください："
-            echo "  gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - $(hostname)\""
+            echo -e "${YELLOW}⚠️  SSH鍵の追加に失敗しました。手動で追加してください: gh ssh-key add ~/.ssh/id_ed25519.pub --title \"Claude Multi - $(hostname)\"${NC}"
         fi
     else
         echo "✓ SSH鍵を作成しました"

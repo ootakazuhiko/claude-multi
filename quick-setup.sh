@@ -170,6 +170,17 @@ fi
 echo ""
 echo "🔑 SSH鍵設定..."
 if [ ! -f ~/.ssh/id_ed25519 ]; then
+    # 対話環境チェック
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        echo -e "${RED}エラー: 非対話環境が検出されました${NC}" >&2
+        echo "標準入力または標準出力がターミナルに接続されていません。"
+        echo "対話的なターミナル環境で再実行するか、手動でSSH鍵を作成してください。"
+        echo ""
+        echo "手動作成例:"
+        echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+        exit 1
+    fi
+    
     echo "GitHubで使用するメールアドレスを入力してください。"
     echo -e "${YELLOW}注意: GitHubアカウントに登録されているメールアドレスを使用することを推奨します${NC}"
     echo ""
@@ -197,8 +208,12 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
             echo -e "${YELLOW}--- 再入力をお願いします ---${NC}"
         fi
         
-        # タイムアウト付きで入力を読み取り
-        if read -t 30 -rp "GitHubで使用するメールアドレス: " email 2>/dev/null; then
+        # 入力プロンプト表示
+        echo -n "GitHubで使用するメールアドレス: "
+        
+        # タイムアウト付きで入力を読み取り（標準エラー出力をキャプチャして問題を診断）
+        read_error=""
+        if email=$(timeout 30 bash -c 'read -r input && echo "$input"' 2>&1); then
             if validate_email "$email"; then
                 echo -e "${GREEN}✓ 有効なメールアドレスです: $email${NC}"
                 break
@@ -209,8 +224,14 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
                 echo -e "${YELLOW}残り試行回数: ${remaining_attempts}回${NC}"
             fi
         else
+            read_exit_code=$?
             echo ""
-            echo -e "${RED}エラー: 入力タイムアウト（30秒）または非対話環境が検出されました${NC}" >&2
+            if [ $read_exit_code -eq 124 ]; then
+                echo -e "${RED}エラー: 入力タイムアウト（30秒）${NC}" >&2
+            else
+                echo -e "${RED}エラー: 入力の読み取りに失敗しました（終了コード: $read_exit_code）${NC}" >&2
+                echo -e "${YELLOW}デバッグ情報: stdin=$([ -t 0 ] && echo "TTY" || echo "非TTY"), stdout=$([ -t 1 ] && echo "TTY" || echo "非TTY")${NC}" >&2
+            fi
             echo "対話環境で再実行するか、手動でSSH鍵を作成してください。"
             echo ""
             echo "手動作成例:"

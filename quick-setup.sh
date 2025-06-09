@@ -20,12 +20,28 @@ validate_email() {
     local email="$1"
     if [ -z "$email" ]; then
         echo -e "${RED}エラー: メールアドレスが入力されていません${NC}" >&2
+        echo -e "${YELLOW}例: user@example.com, name@domain.co.jp${NC}" >&2
         return 1
     fi
     
     # 基本的なメールアドレス形式チェック
     if ! [[ "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-        echo -e "${RED}エラー: 有効なメールアドレスを入力してください${NC}" >&2
+        echo -e "${RED}エラー: 有効なメールアドレス形式ではありません${NC}" >&2
+        echo -e "${YELLOW}正しい形式: ユーザー名@ドメイン名.拡張子 (例: user@example.com)${NC}" >&2
+        
+        # より具体的なヒントを提供
+        if [[ ! "$email" =~ @ ]]; then
+            echo -e "${YELLOW}ヒント: '@'記号が必要です${NC}" >&2
+        elif [[ "$email" =~ @.*@.* ]]; then
+            echo -e "${YELLOW}ヒント: '@'記号は1つだけ使用してください${NC}" >&2
+        elif [[ "$email" =~ @$ ]]; then
+            echo -e "${YELLOW}ヒント: '@'の後にドメイン名が必要です (例: gmail.com)${NC}" >&2
+        elif [[ ! "$email" =~ \. ]]; then
+            echo -e "${YELLOW}ヒント: ドメインには'.'が必要です (例: example.com)${NC}" >&2
+        elif [[ "$email" =~ \.$ ]]; then
+            echo -e "${YELLOW}ヒント: ドメインの拡張子が必要です (例: .com, .org)${NC}" >&2
+        fi
+        
         return 1
     fi
     
@@ -154,6 +170,21 @@ fi
 echo ""
 echo "🔑 SSH鍵設定..."
 if [ ! -f ~/.ssh/id_ed25519 ]; then
+    # 対話環境チェック
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        echo -e "${RED}エラー: 非対話環境が検出されました${NC}" >&2
+        echo "標準入力または標準出力がターミナルに接続されていません。"
+        echo "対話的なターミナル環境で再実行するか、手動でSSH鍵を作成してください。"
+        echo ""
+        echo "手動作成例:"
+        echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+        exit 1
+    fi
+    
+    echo "GitHubで使用するメールアドレスを入力してください。"
+    echo -e "${YELLOW}注意: GitHubアカウントに登録されているメールアドレスを使用することを推奨します${NC}"
+    echo ""
+    
     # 入力試行回数制限とタイムアウト保護
     attempt_count=0
     max_attempts=5
@@ -161,26 +192,50 @@ if [ ! -f ~/.ssh/id_ed25519 ]; then
     while true; do
         # 最大試行回数チェック
         if [ $attempt_count -ge $max_attempts ]; then
+            echo ""
             echo -e "${RED}エラー: 最大試行回数(${max_attempts}回)に達しました${NC}" >&2
+            echo "有効なメールアドレスが入力されませんでした。"
             echo "手動でSSH鍵を作成するか、対話環境で再実行してください。"
-            echo "手動作成例: ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+            echo ""
+            echo "手動作成例:"
+            echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
             exit 1
         fi
         
-        # タイムアウト付きで入力を読み取り
-        if read -t 30 -rp "GitHubで使用するメールアドレス: " email 2>/dev/null; then
+        # 試行回数表示（初回以外）
+        if [ $attempt_count -gt 0 ]; then
+            echo ""
+            echo -e "${YELLOW}--- 再入力をお願いします ---${NC}"
+        fi
+        
+        # 入力プロンプト表示
+        echo -n "GitHubで使用するメールアドレス: "
+        
+        # タイムアウト付きで入力を読み取り（標準エラー出力をキャプチャして問題を診断）
+        read_error=""
+        if email=$(timeout 30 bash -c 'read -r input && echo "$input"' 2>&1); then
             if validate_email "$email"; then
+                echo -e "${GREEN}✓ 有効なメールアドレスです: $email${NC}"
                 break
             fi
             # 残り試行回数を表示
             remaining_attempts=$((max_attempts - attempt_count - 1))
             if [ $remaining_attempts -gt 0 ]; then
-                echo "残り試行回数: ${remaining_attempts}回"
+                echo -e "${YELLOW}残り試行回数: ${remaining_attempts}回${NC}"
             fi
         else
-            echo -e "${RED}エラー: 入力タイムアウトまたは非対話環境が検出されました${NC}" >&2
+            read_exit_code=$?
+            echo ""
+            if [ $read_exit_code -eq 124 ]; then
+                echo -e "${RED}エラー: 入力タイムアウト（30秒）${NC}" >&2
+            else
+                echo -e "${RED}エラー: 入力の読み取りに失敗しました（終了コード: $read_exit_code）${NC}" >&2
+                echo -e "${YELLOW}デバッグ情報: stdin=$([ -t 0 ] && echo "TTY" || echo "非TTY"), stdout=$([ -t 1 ] && echo "TTY" || echo "非TTY")${NC}" >&2
+            fi
             echo "対話環境で再実行するか、手動でSSH鍵を作成してください。"
-            echo "手動作成例: ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
+            echo ""
+            echo "手動作成例:"
+            echo "  ssh-keygen -t ed25519 -C \"your-email@example.com\" -N \"\" -f ~/.ssh/id_ed25519"
             exit 1
         fi
         

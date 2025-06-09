@@ -239,22 +239,29 @@ quickstart() {
     # Git設定
     setup_git "$name"
     
-    # サービス起動
-    systemctl start "claude-code@$name"
-    
-    # 少し待つ
-    echo -n "起動中"
-    for _ in {1..5}; do
-        echo -n "."
-        sleep 1
-    done
-    echo ""
-    
-    # 起動確認
-    if systemctl is-active --quiet "claude-code@$name"; then
-        echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash | ヘルスチェック: claude-manager health $name${NC}"
+    # Claude Code利用可能性チェック
+    if command -v claude >/dev/null 2>&1; then
+        # サービス起動
+        systemctl start "claude-code@$name"
+        
+        # 少し待つ
+        echo -n "起動中"
+        for _ in {1..5}; do
+            echo -n "."
+            sleep 1
+        done
+        echo ""
+        
+        # 起動確認
+        if systemctl is-active --quiet "claude-code@$name"; then
+            echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash | ヘルスチェック: claude-manager health $name${NC}"
+        else
+            echo -e "${RED}⚠️  起動に失敗しました。ログを確認してください: claude-manager logs $name${NC}" >&2
+        fi
     else
-        echo -e "${RED}⚠️  起動に失敗しました。ログを確認してください: claude-manager logs $name${NC}" >&2
+        echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。プロジェクトは作成されましたが、サービスは起動していません。${NC}"
+        echo -e "${GREEN}✨ セットアップ完了！ VS Code: code --remote wsl+Ubuntu /home/claude-$name/workspace | プロジェクトに入る: sudo -u claude-$name -i bash${NC}"
+        echo -e "${YELLOW}💡 Claude Codeが利用可能になった場合は手動で起動: claude-manager start $name${NC}"
     fi
 }
 
@@ -326,6 +333,12 @@ health_check() {
 start_all() {
     echo "🚀 全プロジェクトを起動中..."
     local count=0
+    local skipped=0
+    
+    if ! command -v claude >/dev/null 2>&1; then
+        echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。すべてのサービスがスキップされます。${NC}"
+        return 1
+    fi
     
     for user in $(getent passwd | grep "^claude-" | cut -d: -f1); do
         local name="${user#claude-}"
@@ -399,8 +412,14 @@ case "${1:-}" in
         ;;
     start)
         check_project_exists "$2"
-        systemctl start "claude-code@$2"
-        echo -e "${GREEN}✅ 起動完了${NC}"
+        if command -v claude >/dev/null 2>&1; then
+            systemctl start "claude-code@$2"
+            echo -e "${GREEN}✅ 起動完了${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。サービスを起動できません。${NC}" >&2
+            echo -e "${YELLOW}💡 Claude Codeが利用可能になってから再実行してください。${NC}" >&2
+            exit 1
+        fi
         ;;
     stop)
         check_project_exists "$2"
@@ -409,8 +428,14 @@ case "${1:-}" in
         ;;
     restart)
         check_project_exists "$2"
-        systemctl restart "claude-code@$2"
-        echo -e "${GREEN}✅ 再起動完了${NC}"
+        if command -v claude >/dev/null 2>&1; then
+            systemctl restart "claude-code@$2"
+            echo -e "${GREEN}✅ 再起動完了${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Claude Codeが利用できません（限定アクセス）。サービスを再起動できません。${NC}" >&2
+            echo -e "${YELLOW}💡 Claude Codeが利用可能になってから再実行してください。${NC}" >&2
+            exit 1
+        fi
         ;;
     status)
         check_project_exists "$2"
